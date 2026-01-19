@@ -27,7 +27,7 @@ local ImigranteTab = Window:CreateTab("👤 Imigrante", nil)
 local ImigranteSection = ImigranteTab:CreateSection("Percurso Automático")
 
 local ImigranteButton = ImigranteTab:CreateButton({
-   Name = "Ande pra três para pegar arma",
+   Name = "Pegar arma imigrante",
    Callback = function()
       local player = game.Players.LocalPlayer
       local character = player.Character or player.CharacterAdded:Wait()
