@@ -56,7 +56,8 @@ local jumpConnection = nil
 
 local FarmEnabled = false
 local AntiAFKEnabled = false
-local farmPosition = Vector3.new(243.30, 47.24, 81.19)
+local farmPosition = Vector3.new(243.30, 47.24, 81.19)  -- Posição de XP em dobro
+local safePosition = Vector3.new(243.30, -500, 81.19)  -- Posição segura (embaixo do mapa)
 local farmConnection = nil
 local antiAfkConnection = nil
 
@@ -406,8 +407,24 @@ local function StartFarm()
          local hrp = character:WaitForChild("HumanoidRootPart")
          local hum = character:WaitForChild("Humanoid")
          
+         -- Desativar colisão de todas as partes
+         for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+               part.CanCollide = false
+            end
+         end
+         
+         -- Mover corpo para posição segura (invisível)
+         for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+               part.CFrame = CFrame.new(safePosition)
+            end
+         end
+         
+         -- HumanoidRootPart fica na posição de XP em dobro
          local sudeste = CFrame.Angles(0, math.rad(135), 0)
          hrp.CFrame = CFrame.new(farmPosition) * sudeste
+         
          task.wait(1)
          
          hum.WalkSpeed = 0
@@ -415,17 +432,24 @@ local function StartFarm()
          
          Rayfield:Notify({
             Title = "Farm XP",
-            Content = "Farm INICIADO!",
+            Content = "Farm Invisível INICIADO!",
             Duration = 3,
             Image = nil
          })
          
-         -- Anti-AFK com movimento
+         -- Manter HumanoidRootPart no local de XP
          farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
             pcall(function()
                if FarmEnabled and hrp then
                   local offset = math.sin(tick() * 1.5) * 0.05
                   hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
+                  
+                  -- Manter outras partes escondidas
+                  for _, part in pairs(character:GetChildren()) do
+                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.CFrame = CFrame.new(safePosition)
+                     end
+                  end
                end
             end)
          end)
@@ -463,10 +487,24 @@ local function StopFarm()
       local char = game.Players.LocalPlayer.Character
       if char then
          local hum = char:FindFirstChild("Humanoid")
+         local hrp = char:FindFirstChild("HumanoidRootPart")
+         
          if hum then
             hum.WalkSpeed = 16
             hum.JumpPower = 50
             hum:UnequipTools()
+         end
+         
+         -- Restaurar corpo normal
+         if hrp then
+            for _, part in pairs(char:GetChildren()) do
+               if part:IsA("BasePart") then
+                  part.CanCollide = true
+                  if part.Name ~= "HumanoidRootPart" then
+                     part.CFrame = hrp.CFrame
+                  end
+               end
+            end
          end
       end
    end)
