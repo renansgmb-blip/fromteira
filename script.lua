@@ -57,7 +57,7 @@ local jumpConnection = nil
 local FarmEnabled = false
 local AntiAFKEnabled = false
 local farmPosition = Vector3.new(243.30, 47.24, 81.19)  -- Posição de XP em dobro
-local safePosition = Vector3.new(243.30, -500, 81.19)  -- Posição segura (embaixo do mapa)
+local safePosition = Vector3.new(243.30, 47.24, 81.19)  -- Mesma posição (corpo fica junto mas invisível)
 local farmConnection = nil
 local antiAfkConnection = nil
 
@@ -407,21 +407,17 @@ local function StartFarm()
          local hrp = character:WaitForChild("HumanoidRootPart")
          local hum = character:WaitForChild("Humanoid")
          
-         -- Desativar colisão de todas as partes
+         -- Tornar todas as partes invisíveis e sem colisão
          for _, part in pairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
                part.CanCollide = false
+               part.Transparency = 1
+            elseif part:IsA("Decal") or part:IsA("Face") then
+               part.Transparency = 1
             end
          end
          
-         -- Mover corpo para posição segura (invisível)
-         for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-               part.CFrame = CFrame.new(safePosition)
-            end
-         end
-         
-         -- HumanoidRootPart fica na posição de XP em dobro
+         -- Posicionar na área de XP em dobro
          local sudeste = CFrame.Angles(0, math.rad(135), 0)
          hrp.CFrame = CFrame.new(farmPosition) * sudeste
          
@@ -437,17 +433,18 @@ local function StartFarm()
             Image = nil
          })
          
-         -- Manter HumanoidRootPart no local de XP
+         -- Manter posição e invisibilidade
          farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
             pcall(function()
                if FarmEnabled and hrp then
                   local offset = math.sin(tick() * 1.5) * 0.05
                   hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
                   
-                  -- Manter outras partes escondidas
-                  for _, part in pairs(character:GetChildren()) do
-                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.CFrame = CFrame.new(safePosition)
+                  -- Manter invisibilidade
+                  for _, part in pairs(character:GetDescendants()) do
+                     if part:IsA("BasePart") then
+                        part.Transparency = 1
+                        part.CanCollide = false
                      end
                   end
                end
@@ -487,7 +484,6 @@ local function StopFarm()
       local char = game.Players.LocalPlayer.Character
       if char then
          local hum = char:FindFirstChild("Humanoid")
-         local hrp = char:FindFirstChild("HumanoidRootPart")
          
          if hum then
             hum.WalkSpeed = 16
@@ -495,15 +491,17 @@ local function StopFarm()
             hum:UnequipTools()
          end
          
-         -- Restaurar corpo normal
-         if hrp then
-            for _, part in pairs(char:GetChildren()) do
-               if part:IsA("BasePart") then
-                  part.CanCollide = true
-                  if part.Name ~= "HumanoidRootPart" then
-                     part.CFrame = hrp.CFrame
-                  end
+         -- Restaurar visibilidade
+         for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+               part.Transparency = 0
+               part.CanCollide = true
+               
+               if part.Name == "HumanoidRootPart" then
+                  part.Transparency = 1
                end
+            elseif part:IsA("Decal") or part:IsA("Face") then
+               part.Transparency = 0
             end
          end
       end
