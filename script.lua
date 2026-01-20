@@ -407,25 +407,21 @@ local function StartFarm()
          local hrp = character:WaitForChild("HumanoidRootPart")
          local hum = character:WaitForChild("Humanoid")
          
-         -- Desativar colisão de todas as partes
+         -- Desativar colisão
          for _, part in pairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
                part.CanCollide = false
             end
          end
          
-         -- Mover corpo para posição segura (todas as partes exceto HRP)
-         for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-               part.CFrame = CFrame.new(safePosition)
-            end
-         end
+         -- Primeiro teleportar tudo para o lugar seguro
+         character:SetPrimaryPartCFrame(CFrame.new(safePosition))
+         task.wait(0.5)
          
-         -- HumanoidRootPart fica na posição de XP em dobro
-         local sudeste = CFrame.Angles(0, math.rad(135), 0)
-         hrp.CFrame = CFrame.new(farmPosition) * sudeste
+         -- Depois mover só a HRP para o local de XP
+         hrp.CFrame = CFrame.new(farmPosition)
          
-         task.wait(1)
+         task.wait(0.5)
          
          hum.WalkSpeed = 0
          hum.JumpPower = 0
@@ -437,19 +433,28 @@ local function StartFarm()
             Image = nil
          })
          
-         -- Manter HumanoidRootPart no local de XP e corpo escondido
+         -- Manter separação
          farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
             pcall(function()
-               if FarmEnabled and hrp then
-                  -- HRP no local de XP
+               if FarmEnabled and hrp and character then
+                  -- HRP no local de XP com movimento anti-AFK
                   local offset = math.sin(tick() * 1.5) * 0.05
-                  hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
+                  hrp.CFrame = CFrame.new(farmPosition.X + offset, farmPosition.Y, farmPosition.Z + offset)
+                  hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                   
-                  -- Corpo no local seguro
+                  -- Manter outras partes no local seguro
                   for _, part in pairs(character:GetChildren()) do
-                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "Head" then
                         part.CFrame = CFrame.new(safePosition)
+                        part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                      end
+                  end
+                  
+                  -- Head separada também
+                  local head = character:FindFirstChild("Head")
+                  if head then
+                     head.CFrame = CFrame.new(safePosition)
+                     head.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                   end
                end
             end)
