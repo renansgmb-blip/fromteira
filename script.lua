@@ -56,8 +56,7 @@ local jumpConnection = nil
 
 local FarmEnabled = false
 local AntiAFKEnabled = false
-local farmPosition = Vector3.new(243.30, 47.24, 81.19)  -- Posição de XP em dobro
-local safePosition = Vector3.new(353.63, 38.60, 138.30)  -- Posição segura para esconder o corpo
+local farmPosition = Vector3.new(243.30, 47.24, 81.19)
 local farmConnection = nil
 local antiAfkConnection = nil
 
@@ -407,55 +406,26 @@ local function StartFarm()
          local hrp = character:WaitForChild("HumanoidRootPart")
          local hum = character:WaitForChild("Humanoid")
          
-         -- Desativar colisão de todas as partes
-         for _, part in pairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-               part.CanCollide = false
-            end
-         end
-         
-         -- HumanoidRootPart na área de XP (ela já é invisível por padrão)
-         hrp.CFrame = CFrame.new(farmPosition)
-         hrp.Transparency = 1
-         
-         task.wait(0.2)
-         
-         -- Corpo visível no lugar seguro
-         for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-               part.CFrame = CFrame.new(safePosition)
-            end
-         end
-         
-         task.wait(0.5)
+         local sudeste = CFrame.Angles(0, math.rad(135), 0)
+         hrp.CFrame = CFrame.new(farmPosition) * sudeste
+         task.wait(1)
          
          hum.WalkSpeed = 0
          hum.JumpPower = 0
          
          Rayfield:Notify({
             Title = "Farm XP",
-            Content = "Farm Desync ATIVADO!",
+            Content = "Farm INICIADO!",
             Duration = 3,
             Image = nil
          })
          
-         -- Manter separação constantemente
+         -- Anti-AFK com movimento
          farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
             pcall(function()
-               if FarmEnabled and hrp and character then
-                  -- HRP invisível na área de XP com movimento anti-AFK
+               if FarmEnabled and hrp then
                   local offset = math.sin(tick() * 1.5) * 0.05
-                  hrp.CFrame = CFrame.new(farmPosition.X + offset, farmPosition.Y, farmPosition.Z + offset)
-                  hrp.Transparency = 1
-                  hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                  
-                  -- Todas as outras partes visíveis no lugar seguro
-                  for _, part in pairs(character:GetChildren()) do
-                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.CFrame = CFrame.new(safePosition)
-                        part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                     end
-                  end
+                  hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
                end
             end)
          end)
@@ -493,31 +463,17 @@ local function StopFarm()
       local char = game.Players.LocalPlayer.Character
       if char then
          local hum = char:FindFirstChild("Humanoid")
-         local hrp = char:FindFirstChild("HumanoidRootPart")
-         
          if hum then
             hum.WalkSpeed = 16
             hum.JumpPower = 50
             hum:UnequipTools()
-         end
-         
-         -- Restaurar corpo normal (juntar tudo na posição da HRP)
-         if hrp then
-            for _, part in pairs(char:GetChildren()) do
-               if part:IsA("BasePart") then
-                  part.CanCollide = true
-                  if part.Name ~= "HumanoidRootPart" then
-                     part.CFrame = hrp.CFrame
-                  end
-               end
-            end
          end
       end
    end)
    
    Rayfield:Notify({
       Title = "Farm XP",
-      Content = "Farm PARADO - Corpo Restaurado",
+      Content = "Farm PARADO",
       Duration = 2,
       Image = nil
    })
