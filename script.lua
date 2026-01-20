@@ -407,19 +407,25 @@ local function StartFarm()
          local hrp = character:WaitForChild("HumanoidRootPart")
          local hum = character:WaitForChild("Humanoid")
          
-         -- Desativar colisão
+         -- Desativar colisão de todas as partes
          for _, part in pairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
                part.CanCollide = false
             end
          end
          
-         -- Primeiro teleportar tudo para o lugar seguro
-         character:SetPrimaryPartCFrame(CFrame.new(safePosition))
-         task.wait(0.5)
-         
-         -- Depois mover só a HRP para o local de XP
+         -- HumanoidRootPart na área de XP (ela já é invisível por padrão)
          hrp.CFrame = CFrame.new(farmPosition)
+         hrp.Transparency = 1
+         
+         task.wait(0.2)
+         
+         -- Corpo visível no lugar seguro
+         for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+               part.CFrame = CFrame.new(safePosition)
+            end
+         end
          
          task.wait(0.5)
          
@@ -428,33 +434,27 @@ local function StartFarm()
          
          Rayfield:Notify({
             Title = "Farm XP",
-            Content = "Farm Desync INICIADO!",
+            Content = "Farm Desync ATIVADO!",
             Duration = 3,
             Image = nil
          })
          
-         -- Manter separação
+         -- Manter separação constantemente
          farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
             pcall(function()
                if FarmEnabled and hrp and character then
-                  -- HRP no local de XP com movimento anti-AFK
+                  -- HRP invisível na área de XP com movimento anti-AFK
                   local offset = math.sin(tick() * 1.5) * 0.05
                   hrp.CFrame = CFrame.new(farmPosition.X + offset, farmPosition.Y, farmPosition.Z + offset)
+                  hrp.Transparency = 1
                   hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                   
-                  -- Manter outras partes no local seguro
+                  -- Todas as outras partes visíveis no lugar seguro
                   for _, part in pairs(character:GetChildren()) do
-                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "Head" then
+                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                         part.CFrame = CFrame.new(safePosition)
                         part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                      end
-                  end
-                  
-                  -- Head separada também
-                  local head = character:FindFirstChild("Head")
-                  if head then
-                     head.CFrame = CFrame.new(safePosition)
-                     head.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                   end
                end
             end)
