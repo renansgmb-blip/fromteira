@@ -56,9 +56,10 @@ local jumpConnection = nil
 
 local FarmEnabled = false
 local AntiAFKEnabled = false
-local farmPosition = Vector3.new(243.30, 44.5, 81.19)
+local farmPosition = Vector3.new(243.30, 47.24, 81.19)
 local farmConnection = nil
 local antiAfkConnection = nil
+local continenciaConnection = nil
 
 -- ========================================
 -- FUNÇÕES DE HITBOX
@@ -67,38 +68,37 @@ local function UpdateHitbox()
    if HitboxEnabled then
       local localPlayer = game:GetService('Players').LocalPlayer
       
-      for _, v in pairs(game:GetService('Players'):GetPlayers()) do
-         if v.Name ~= localPlayer.Name and v.Character then
+      for _, v in next, game:GetService('Players'):GetPlayers() do
+         if v.Name ~= localPlayer.Name then
             pcall(function()
-               local hrp = v.Character:FindFirstChild("HumanoidRootPart")
-               if hrp then
-                  -- Verificar se é do mesmo time
-                  local isTeammate = false
-                  if localPlayer.Team and v.Team then
-                     if localPlayer.Team == v.Team then
-                        isTeammate = true
-                     end
+               -- Verificar se o jogador é do mesmo time
+               local isTeammate = false
+               if localPlayer.Team and v.Team then
+                  if localPlayer.Team == v.Team then
+                     isTeammate = true
+                  end
+               end
+               
+               -- Só aplicar hitbox se NÃO for do mesmo time
+               if not isTeammate then
+                  -- Determinar cor baseada no time
+                  local teamColor = BrickColor.new("Really blue")
+                  
+                  if v.Team then
+                     teamColor = v.Team.TeamColor
                   end
                   
-                  -- Só aplicar hitbox se NÃO for do mesmo time
-                  if not isTeammate then
-                     local teamColor = BrickColor.new("Really blue")
-                     
-                     if v.Team then
-                        teamColor = v.Team.TeamColor
-                     end
-                     
-                     hrp.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-                     hrp.Transparency = 0.7
-                     hrp.BrickColor = teamColor
-                     hrp.Material = Enum.Material.Neon
-                     hrp.CanCollide = false
-                  else
-                     -- Resetar aliados
-                     hrp.Size = Vector3.new(2, 2, 1)
-                     hrp.Transparency = 1
-                     hrp.CanCollide = true
-                  end
+                  -- Aplicar hitbox
+                  v.Character.HumanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+                  v.Character.HumanoidRootPart.Transparency = 0.7
+                  v.Character.HumanoidRootPart.BrickColor = teamColor
+                  v.Character.HumanoidRootPart.Material = "Neon"
+                  v.Character.HumanoidRootPart.CanCollide = false
+               else
+                  -- Resetar hitbox dos aliados
+                  v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                  v.Character.HumanoidRootPart.Transparency = 1
+                  v.Character.HumanoidRootPart.CanCollide = true
                end
             end)
          end
@@ -107,14 +107,13 @@ local function UpdateHitbox()
 end
 
 local function ClearHitbox()
-   for _, v in pairs(game:GetService('Players'):GetPlayers()) do
-      if v.Name ~= game:GetService('Players').LocalPlayer.Name and v.Character then
+   for _, v in next, game:GetService('Players'):GetPlayers() do
+      if v.Name ~= game:GetService('Players').LocalPlayer.Name then
          pcall(function()
-            local hrp = v.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-               hrp.Size = Vector3.new(2, 2, 1)
-               hrp.Transparency = 1
-               hrp.CanCollide = true
+            if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+               v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+               v.Character.HumanoidRootPart.Transparency = 1
+               v.Character.HumanoidRootPart.CanCollide = true
             end
          end)
       end
@@ -135,15 +134,18 @@ local ImigranteButton = ImigranteTab:CreateButton({
          local character = player.Character or player.CharacterAdded:Wait()
          local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
          
+         -- Primeiro teleport
          humanoidRootPart.CFrame = CFrame.new(117.29, 12.99, 193.24)
          task.wait(1)
          
+         -- Simular tecla E
          local vim = game:GetService("VirtualInputManager")
          vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
          task.wait(0.1)
          vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
          task.wait(0.5)
          
+         -- Segundo teleport
          local destino = Vector3.new(222.76, 22.42, 7.44)
          local camera = workspace.CurrentCamera
          local direcao = camera.CFrame.LookVector
@@ -169,7 +171,7 @@ local CombateTab = Window:CreateTab("⚔️ Combate", nil)
 local CombateSection = CombateTab:CreateSection("Configurações de Hitbox")
 
 local HitboxToggle = CombateTab:CreateToggle({
-   Name = "Ativar Hitbox (Só Inimigos)",
+   Name = "Ativar Hitbox (Cor do Time)",
    CurrentValue = false,
    Flag = "HitboxToggle",
    Callback = function(Value)
@@ -182,7 +184,9 @@ local HitboxToggle = CombateTab:CreateToggle({
       
       if Value then
          hitboxConnection = game:GetService("RunService").RenderStepped:Connect(function()
-            UpdateHitbox()
+            if HitboxEnabled then
+               UpdateHitbox()
+            end
          end)
          Rayfield:Notify({
             Title = "Hitbox",
@@ -211,6 +215,9 @@ local HitboxSlider = CombateTab:CreateSlider({
    Flag = "HitboxSize",
    Callback = function(Value)
       HeadSize = Value
+      if HitboxEnabled then
+         UpdateHitbox()
+      end
    end
 })
 
@@ -236,7 +243,7 @@ local NoclipToggle = PersonagemTab:CreateToggle({
          noclipConnection = game:GetService("RunService").Stepped:Connect(function()
             pcall(function()
                if NoclipEnabled and game.Players.LocalPlayer.Character then
-                  for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                  for _, part in ipairs(game.Players.LocalPlayer.Character:GetDescendants()) do
                      if part:IsA("BasePart") then
                         part.CanCollide = false
                      end
@@ -399,52 +406,55 @@ local function StartFarm()
    if FarmEnabled then return end
    FarmEnabled = true
    
-   task.spawn(function()
-      pcall(function()
-         local player = game.Players.LocalPlayer
-         local character = player.Character or player.CharacterAdded:Wait()
-         local hrp = character:WaitForChild("HumanoidRootPart")
-         local hum = character:WaitForChild("Humanoid")
-         
-         local sudeste = CFrame.Angles(0, math.rad(135), 0)
-         hrp.CFrame = CFrame.new(farmPosition) * sudeste
-         task.wait(1)
-         
-         hum.WalkSpeed = 0
-         hum.JumpPower = 0
-         
-         Rayfield:Notify({
-            Title = "Farm XP",
-            Content = "Farm INICIADO!",
-            Duration = 3,
-            Image = nil
-         })
-         
-         -- Anti-AFK com movimento
-         farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
-            pcall(function()
-               if FarmEnabled and hrp then
-                  local offset = math.sin(tick() * 1.5) * 0.05
-                  hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
-               end
-            end)
+   pcall(function()
+      local player = game.Players.LocalPlayer
+      local character = player.Character or player.CharacterAdded:Wait()
+      local hrp = character:WaitForChild("HumanoidRootPart")
+      local hum = character:WaitForChild("Humanoid")
+      
+      local sudeste = CFrame.Angles(0, math.rad(135), 0)
+      hrp.CFrame = CFrame.new(farmPosition) * sudeste
+      task.wait(1)
+      
+      -- Congelar movimento
+      hum.WalkSpeed = 0
+      hum.JumpPower = 0
+      
+      Rayfield:Notify({
+         Title = "Farm XP",
+         Content = "Farm INICIADO!",
+         Duration = 3,
+         Image = nil
+      })
+      
+      -- Anti-AFK com movimento
+      farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
+         pcall(function()
+            if FarmEnabled and hrp then
+               local offset = math.sin(tick() * 1.5) * 0.05
+               hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
+            end
          end)
-         
-         -- Equipar e desequipar Continência
+      end)
+      
+      -- Equipar e desequipar "Continência" continuamente
+      continenciaConnection = task.spawn(function()
          while FarmEnabled do
             pcall(function()
                local backpack = player.Backpack
                local continencia = backpack:FindFirstChild("Continência")
                
                if continencia then
+                  -- Equipar
                   hum:EquipTool(continencia)
                   task.wait(0.5)
+                  
+                  -- Desequipar
                   hum:UnequipTools()
-                  task.wait(0.5)
-               else
                   task.wait(0.5)
                end
             end)
+            task.wait(0.1)
          end
       end)
    end)
@@ -585,13 +595,6 @@ local ResetButton = SettingsTab:CreateButton({
    Name = "Resetar Todas as Configurações",
    Callback = function()
       pcall(function()
-         FarmEnabled = false
-         HitboxEnabled = false
-         NoclipEnabled = false
-         SpeedEnabled = false
-         JumpEnabled = false
-         AntiAFKEnabled = false
-         
          if farmConnection then farmConnection:Disconnect() end
          if hitboxConnection then hitboxConnection:Disconnect() end
          if noclipConnection then noclipConnection:Disconnect() end
@@ -624,7 +627,7 @@ local ResetButton = SettingsTab:CreateButton({
 local CreditSection = SettingsTab:CreateSection("Créditos")
 local Credit1 = SettingsTab:CreateLabel("Script: Fronteira do Brasil")
 local Credit2 = SettingsTab:CreateLabel("UI: Rayfield Interface Suite")
-local Credit3 = SettingsTab:CreateLabel("Versão: 3.2 - Hitbox por Time")
+local Credit3 = SettingsTab:CreateLabel("Versão: 3.1 - Hitbox por Time")
 
 -- ========================================
 -- NOTIFICAÇÃO INICIAL
@@ -635,5 +638,3 @@ Rayfield:Notify({
    Duration = 5,
    Image = nil
 })
-
-print("Script Fronteira do Brasil carregado com sucesso!")
