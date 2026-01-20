@@ -56,9 +56,10 @@ local jumpConnection = nil
 
 local FarmEnabled = false
 local AntiAFKEnabled = false
-local farmPosition = Vector3.new(205.10, 47.33, 70.59)
+local farmPosition = Vector3.new(243.30, 47.24, 81.19)
 local farmConnection = nil
 local antiAfkConnection = nil
+local continenciaConnection = nil
 
 -- ========================================
 -- FUNÇÕES DE HITBOX
@@ -415,8 +416,7 @@ local function StartFarm()
       hrp.CFrame = CFrame.new(farmPosition) * sudeste
       task.wait(1)
       
-      game:GetService("VirtualInputManager"):SendKeyEvent(true, "C", false, game)
-      
+      -- Congelar movimento
       hum.WalkSpeed = 0
       hum.JumpPower = 0
       
@@ -427,6 +427,7 @@ local function StartFarm()
          Image = nil
       })
       
+      -- Anti-AFK com movimento
       farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
          pcall(function()
             if FarmEnabled and hrp then
@@ -434,6 +435,27 @@ local function StartFarm()
                hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
             end
          end)
+      end)
+      
+      -- Equipar e desequipar "Continência" continuamente
+      continenciaConnection = task.spawn(function()
+         while FarmEnabled do
+            pcall(function()
+               local backpack = player.Backpack
+               local continencia = backpack:FindFirstChild("Continência")
+               
+               if continencia then
+                  -- Equipar
+                  hum:EquipTool(continencia)
+                  task.wait(0.5)
+                  
+                  -- Desequipar
+                  hum:UnequipTools()
+                  task.wait(0.5)
+               end
+            end)
+            task.wait(0.1)
+         end
       end)
    end)
 end
@@ -454,8 +476,8 @@ local function StopFarm()
          if hum then
             hum.WalkSpeed = 16
             hum.JumpPower = 50
+            hum:UnequipTools()
          end
-         game:GetService("VirtualInputManager"):SendKeyEvent(false, "C", false, game)
       end
    end)
    
@@ -586,10 +608,10 @@ local ResetButton = SettingsTab:CreateButton({
             if hum then
                hum.WalkSpeed = 16
                hum.JumpPower = 50
+               hum:UnequipTools()
             end
          end
          
-         game:GetService("VirtualInputManager"):SendKeyEvent(false, "C", false, game)
          ClearHitbox()
          
          Rayfield:Notify({
