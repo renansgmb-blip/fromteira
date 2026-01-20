@@ -65,22 +65,40 @@ local antiAfkConnection = nil
 -- ========================================
 local function UpdateHitbox()
    if HitboxEnabled then
+      local localPlayer = game:GetService('Players').LocalPlayer
+      
       for _, v in next, game:GetService('Players'):GetPlayers() do
-         if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+         if v.Name ~= localPlayer.Name then
             pcall(function()
-               -- Determinar cor baseada no time
-               local teamColor = BrickColor.new("Really blue")
-               
-               if v.Team then
-                  teamColor = v.Team.TeamColor
+               -- Verificar se o jogador é do mesmo time
+               local isTeammate = false
+               if localPlayer.Team and v.Team then
+                  if localPlayer.Team == v.Team then
+                     isTeammate = true
+                  end
                end
                
-               -- Aplicar hitbox
-               v.Character.HumanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-               v.Character.HumanoidRootPart.Transparency = 0.7
-               v.Character.HumanoidRootPart.BrickColor = teamColor
-               v.Character.HumanoidRootPart.Material = "Neon"
-               v.Character.HumanoidRootPart.CanCollide = false
+               -- Só aplicar hitbox se NÃO for do mesmo time
+               if not isTeammate then
+                  -- Determinar cor baseada no time
+                  local teamColor = BrickColor.new("Really blue")
+                  
+                  if v.Team then
+                     teamColor = v.Team.TeamColor
+                  end
+                  
+                  -- Aplicar hitbox
+                  v.Character.HumanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+                  v.Character.HumanoidRootPart.Transparency = 0.7
+                  v.Character.HumanoidRootPart.BrickColor = teamColor
+                  v.Character.HumanoidRootPart.Material = "Neon"
+                  v.Character.HumanoidRootPart.CanCollide = false
+               else
+                  -- Resetar hitbox dos aliados
+                  v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                  v.Character.HumanoidRootPart.Transparency = 1
+                  v.Character.HumanoidRootPart.CanCollide = true
+               end
             end)
          end
       end
