@@ -57,7 +57,7 @@ local jumpConnection = nil
 local FarmEnabled = false
 local AntiAFKEnabled = false
 local farmPosition = Vector3.new(243.30, 47.24, 81.19)  -- Posição de XP em dobro
-local safePosition = Vector3.new(243.30, 47.24, 81.19)  -- Mesma posição (corpo fica junto mas invisível)
+local safePosition = Vector3.new(353.63, 38.60, 138.30)  -- Posição segura para esconder o corpo
 local farmConnection = nil
 local antiAfkConnection = nil
 
@@ -407,17 +407,21 @@ local function StartFarm()
          local hrp = character:WaitForChild("HumanoidRootPart")
          local hum = character:WaitForChild("Humanoid")
          
-         -- Tornar todas as partes invisíveis e sem colisão
+         -- Desativar colisão de todas as partes
          for _, part in pairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
                part.CanCollide = false
-               part.Transparency = 1
-            elseif part:IsA("Decal") or part:IsA("Face") then
-               part.Transparency = 1
             end
          end
          
-         -- Posicionar na área de XP em dobro
+         -- Mover corpo para posição segura (todas as partes exceto HRP)
+         for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+               part.CFrame = CFrame.new(safePosition)
+            end
+         end
+         
+         -- HumanoidRootPart fica na posição de XP em dobro
          local sudeste = CFrame.Angles(0, math.rad(135), 0)
          hrp.CFrame = CFrame.new(farmPosition) * sudeste
          
@@ -428,23 +432,23 @@ local function StartFarm()
          
          Rayfield:Notify({
             Title = "Farm XP",
-            Content = "Farm Invisível INICIADO!",
+            Content = "Farm Desync INICIADO!",
             Duration = 3,
             Image = nil
          })
          
-         -- Manter posição e invisibilidade
+         -- Manter HumanoidRootPart no local de XP e corpo escondido
          farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
             pcall(function()
                if FarmEnabled and hrp then
+                  -- HRP no local de XP
                   local offset = math.sin(tick() * 1.5) * 0.05
                   hrp.CFrame = CFrame.new(farmPosition) * CFrame.new(offset, 0, offset)
                   
-                  -- Manter invisibilidade
-                  for _, part in pairs(character:GetDescendants()) do
-                     if part:IsA("BasePart") then
-                        part.Transparency = 1
-                        part.CanCollide = false
+                  -- Corpo no local seguro
+                  for _, part in pairs(character:GetChildren()) do
+                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.CFrame = CFrame.new(safePosition)
                      end
                   end
                end
@@ -484,6 +488,7 @@ local function StopFarm()
       local char = game.Players.LocalPlayer.Character
       if char then
          local hum = char:FindFirstChild("Humanoid")
+         local hrp = char:FindFirstChild("HumanoidRootPart")
          
          if hum then
             hum.WalkSpeed = 16
@@ -491,17 +496,15 @@ local function StopFarm()
             hum:UnequipTools()
          end
          
-         -- Restaurar visibilidade
-         for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-               part.Transparency = 0
-               part.CanCollide = true
-               
-               if part.Name == "HumanoidRootPart" then
-                  part.Transparency = 1
+         -- Restaurar corpo normal (juntar tudo na posição da HRP)
+         if hrp then
+            for _, part in pairs(char:GetChildren()) do
+               if part:IsA("BasePart") then
+                  part.CanCollide = true
+                  if part.Name ~= "HumanoidRootPart" then
+                     part.CFrame = hrp.CFrame
+                  end
                end
-            elseif part:IsA("Decal") or part:IsA("Face") then
-               part.Transparency = 0
             end
          end
       end
@@ -509,7 +512,7 @@ local function StopFarm()
    
    Rayfield:Notify({
       Title = "Farm XP",
-      Content = "Farm PARADO",
+      Content = "Farm PARADO - Corpo Restaurado",
       Duration = 2,
       Image = nil
    })
