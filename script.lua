@@ -56,7 +56,7 @@ local jumpConnection = nil
 
 local FarmEnabled = false
 local AntiAFKEnabled = false
-local farmPosition = Vector3.new(243.30, 47.24, 81.19)
+local farmPosition = Vector3.new(243.30, 44.5, 81.19)  -- Y reduzido para ficar mais baixo
 local farmConnection = nil
 local antiAfkConnection = nil
 local continenciaConnection = nil
