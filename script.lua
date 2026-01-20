@@ -64,56 +64,41 @@ local antiAfkConnection = nil
 -- FUNÇÕES DE HITBOX
 -- ========================================
 local function UpdateHitbox()
-   pcall(function()
-      for _, player in ipairs(game.Players:GetPlayers()) do
-         if player ~= game.Players.LocalPlayer and player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-               -- Remover hitbox antiga
-               for _, child in ipairs(hrp:GetChildren()) do
-                  if child.Name == "HitboxVisual" then
-                     child:Destroy()
-                  end
+   if HitboxEnabled then
+      for _, v in next, game:GetService('Players'):GetPlayers() do
+         if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+            pcall(function()
+               -- Determinar cor baseada no time
+               local teamColor = BrickColor.new("Really blue")
+               
+               if v.Team then
+                  teamColor = v.Team.TeamColor
                end
                
-               -- Determinar cor do time
-               local hitboxColor = Color3.fromRGB(255, 255, 255)
-               
-               if player.Team then
-                  hitboxColor = player.Team.TeamColor.Color
-               end
-               
-               -- Criar nova hitbox
-               local box = Instance.new("BoxHandleAdornment")
-               box.Name = "HitboxVisual"
-               box.Adornee = hrp
-               box.AlwaysOnTop = true
-               box.ZIndex = 5
-               box.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-               box.Color3 = hitboxColor
-               box.Transparency = 0.7
-               box.Parent = hrp
-            end
+               -- Aplicar hitbox
+               v.Character.HumanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+               v.Character.HumanoidRootPart.Transparency = 0.7
+               v.Character.HumanoidRootPart.BrickColor = teamColor
+               v.Character.HumanoidRootPart.Material = "Neon"
+               v.Character.HumanoidRootPart.CanCollide = false
+            end)
          end
       end
-   end)
+   end
 end
 
 local function ClearHitbox()
-   pcall(function()
-      for _, player in ipairs(game.Players:GetPlayers()) do
-         if player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-               for _, child in ipairs(hrp:GetChildren()) do
-                  if child.Name == "HitboxVisual" then
-                     child:Destroy()
-                  end
-               end
+   for _, v in next, game:GetService('Players'):GetPlayers() do
+      if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+         pcall(function()
+            if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+               v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+               v.Character.HumanoidRootPart.Transparency = 1
+               v.Character.HumanoidRootPart.CanCollide = true
             end
-         end
+         end)
       end
-   end)
+   end
 end
 
 -- ========================================
