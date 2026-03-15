@@ -1,0 +1,887 @@
+-- ╔══════════════════════════════════════╗
+-- ║     AIMLOCK + ESP + WHITELIST        ║
+-- ║  T = Aim  |  E = ESP  |  I = Lista  ║
+-- ╚══════════════════════════════════════╝
+
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera      = workspace.CurrentCamera
+
+-- ═══════════════════════════════
+--          CONFIGURAÇÕES
+-- ═══════════════════════════════
+local Config = {
+    -- AIM
+    AimEnabled       = false,
+    SmoothFactor     = 1,          -- 1 = instantâneo e preciso
+    MaxDistance      = 500,
+    AimPart          = "HumanoidRootPart",
+    ToggleKey        = Enum.KeyCode.T,
+
+    -- BREAK (só solta alvo, nunca desativa aim)
+    BreakSensitivity = 1.5,        -- Graus — bem leve pra desgrudar
+    BreakFrames      = 1,
+
+    -- FOV
+    FovEnabled       = true,
+    FovSize          = 80,         -- Raio em pixels na tela (1-300)
+    FovColor         = Color3.fromRGB(255, 255, 255),
+    FovTransparency  = 0.5,
+
+    -- ESP
+    EspEnabled       = false,
+    EspToggleKey     = Enum.KeyCode.E,
+    EspBoxColor      = Color3.fromRGB(0, 200, 255),
+    EspHealthBar     = true,
+    EspDistance      = true,
+    EspMaxDist       = 600,
+
+    -- WHITELIST / LISTA
+    WhitelistKey     = Enum.KeyCode.I,
+    WhitelistCount   = 4,
+    WhitelistUpdate  = 1.5,
+}
+
+-- ═══════════════════════════════
+--           VARIÁVEIS
+-- ═══════════════════════════════
+local Target         = nil
+local AimConnection  = nil
+local EspObjects     = {}
+local FovCircle      = nil
+local Whitelist      = {}
+local NearbyList     = {}
+local lastCamCF      = Camera.CFrame
+local breakCounter   = 0
+local lastListUpdate = 0
+
+-- ═══════════════════════════════
+--     UTILITÁRIOS
+-- ═══════════════════════════════
+
+local function GetMyRoot()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function IsAlive(player)
+    if not player then return false end
+    local char = player.Character
+    if not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0
+end
+
+local function GetDistTo(player)
+    local myRoot = GetMyRoot()
+    if not myRoot then return math.huge end
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return math.huge end
+    return (root.Position - myRoot.Position).Magnitude
+end
+
+local function IsInFov(player)
+    if not Config.FovEnabled then return true end
+    local char = player.Character
+    if not char then return false end
+    local root = char:FindFirstChild(Config.AimPart) or char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+    if not onScreen then return false end
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+    return dist <= Config.FovSize
+end
+
+-- ═══════════════════════════════
+--     FOV CIRCLE
+-- ═══════════════════════════════
+
+local FovGui = nil
+local FovRing = nil
+
+local function CreateFovCircle()
+    -- Remove anterior
+    if FovGui then FovGui:Destroy() end
+
+    -- Cria GUI no CoreGui/PlayerGui
+    FovGui = Instance.new("ScreenGui")
+    FovGui.Name = "FovCircleGui"
+    FovGui.ResetOnSpawn = false
+    FovGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    FovGui.DisplayOrder = 998
+    pcall(function() FovGui.Parent = game:GetService("CoreGui") end)
+    if not FovGui.Parent then FovGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+    -- Frame central (âncora no centro da tela)
+    local container = Instance.new("Frame", FovGui)
+    container.Size = UDim2.new(0, 0, 0, 0)
+    container.Position = UDim2.new(0.5, 0, 0.5, 0)
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+
+    -- Anel do FOV (UIStroke num frame circular)
+    FovRing = Instance.new("Frame", container)
+    local d = Config.FovSize * 2
+    FovRing.Size = UDim2.new(0, d, 0, d)
+    FovRing.Position = UDim2.new(0, -Config.FovSize, 0, -Config.FovSize)
+    FovRing.BackgroundTransparency = 1
+    FovRing.BorderSizePixel = 0
+    Instance.new("UICorner", FovRing).CornerRadius = UDim.new(1, 0)
+    local ring = Instance.new("UIStroke", FovRing)
+    ring.Color = Color3.fromRGB(255, 255, 255)
+    ring.Thickness = 1.5
+    ring.Transparency = 0.4
+
+    FovCircle = FovRing  -- compatibilidade
+end
+
+local function UpdateFovCircle()
+    if not FovRing or not FovRing.Parent then CreateFovCircle() end
+    local visible = Config.AimEnabled and Config.FovEnabled
+    FovGui.Enabled = visible
+    -- Atualiza tamanho se mudou
+    local d = Config.FovSize * 2
+    FovRing.Size = UDim2.new(0, d, 0, d)
+    FovRing.Position = UDim2.new(0, -Config.FovSize, 0, -Config.FovSize)
+end
+
+
+
+-- ═══════════════════════════════
+--     NEARBY LIST
+-- ═══════════════════════════════
+
+local function UpdateNearbyList()
+    local candidates = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        if not player.Character then continue end
+        local hum = player.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then continue end
+        local dist = GetDistTo(player)
+        if dist <= Config.MaxDistance then
+            table.insert(candidates, { player = player, dist = dist })
+        end
+    end
+    table.sort(candidates, function(a, b) return a.dist < b.dist end)
+    NearbyList = {}
+    for i = 1, math.min(Config.WhitelistCount, #candidates) do
+        table.insert(NearbyList, candidates[i])
+    end
+    if RefreshWhitelistUI then RefreshWhitelistUI() end
+end
+
+-- ═══════════════════════════════
+--     AIM
+-- ═══════════════════════════════
+
+local function GetNearestPlayer()
+    local nearest     = nil
+    local nearestDist = math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        if Whitelist[player.Name] then continue end
+        local char = player.Character
+        if not char then continue end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        local rootPart = char:FindFirstChild(Config.AimPart) or char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or humanoid.Health <= 0 or not rootPart then continue end
+        local myRoot = GetMyRoot()
+        if not myRoot then continue end
+        if (rootPart.Position - myRoot.Position).Magnitude > Config.MaxDistance then continue end
+        -- Só considera quem está dentro do FOV
+        if not IsInFov(player) then continue end
+        local screenPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+        if not onScreen then continue end
+        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+        if screenDist < nearestDist then
+            nearestDist = screenDist
+            nearest = player
+        end
+    end
+    return nearest
+end
+
+local function StartAimLoop()
+    if AimConnection then AimConnection:Disconnect() end
+    lastCamCF    = Camera.CFrame
+    breakCounter = 0
+
+    AimConnection = RunService.RenderStepped:Connect(function()
+        UpdateFovCircle()
+        if not Config.AimEnabled then return end
+
+        -- BREAK: só solta o alvo, NUNCA desativa o aim
+        local currentCF  = Camera.CFrame
+        local dot        = math.clamp(currentCF.LookVector:Dot(lastCamCF.LookVector), -1, 1)
+        local angleDelta = math.deg(math.acos(dot))
+        lastCamCF = currentCF
+
+        if angleDelta > Config.BreakSensitivity then
+            breakCounter = breakCounter + 1
+        else
+            breakCounter = math.max(0, breakCounter - 1)
+        end
+
+        if breakCounter >= Config.BreakFrames then
+            Target       = nil
+            breakCounter = 0
+            lastCamCF    = Camera.CFrame
+        end
+
+        -- Troca alvo se morreu, saiu do FOV ou foi whitelistado
+        if not IsAlive(Target) or (Target and Whitelist[Target.Name]) or (Target and not IsInFov(Target)) then
+            Target = GetNearestPlayer()
+            if UpdateGUI then UpdateGUI() end
+            if not Target then return end
+        end
+
+        local char     = Target.Character
+        local rootPart = char and (char:FindFirstChild(Config.AimPart) or char:FindFirstChild("HumanoidRootPart"))
+        if not rootPart then return end
+
+        -- SmoothFactor = 1: lock instantâneo e preciso
+        local camPos    = Camera.CFrame.Position
+        local direction = (rootPart.Position - camPos).Unit
+        local newCF     = CFrame.new(camPos, camPos + direction)
+        Camera.CFrame   = Camera.CFrame:Lerp(newCF, Config.SmoothFactor)
+    end)
+end
+
+local function ToggleAim()
+    Config.AimEnabled = not Config.AimEnabled
+    if Config.AimEnabled then
+        Target       = GetNearestPlayer()
+        lastCamCF    = Camera.CFrame
+        breakCounter = 0
+    else
+        Target = nil
+    end
+    UpdateFovCircle()
+    if UpdateGUI then UpdateGUI() end
+end
+
+-- ═══════════════════════════════
+--     ESP
+-- ═══════════════════════════════
+
+local function CreateEspForPlayer(player)
+    local obj = {}
+    local hl = Instance.new("SelectionBox")
+    hl.LineThickness = 0.04
+    hl.Color3 = Config.EspBoxColor
+    hl.SurfaceTransparency = 1
+    hl.SurfaceColor3 = Config.EspBoxColor
+
+    local bb = Instance.new("BillboardGui")
+    bb.Size = UDim2.new(0,110,0,50)
+    bb.StudsOffset = Vector3.new(0,3,0)
+    bb.AlwaysOnTop = true
+    bb.ResetOnSpawn = false
+
+    local nameLabel = Instance.new("TextLabel", bb)
+    nameLabel.Size = UDim2.new(1,0,0.44,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.TextStrokeColor3 = Color3.new(0,0,0)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 13
+    nameLabel.Text = player.Name
+
+    local infoLabel = Instance.new("TextLabel", bb)
+    infoLabel.Size = UDim2.new(1,0,0.36,0)
+    infoLabel.Position = UDim2.new(0,0,0.44,0)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.TextColor3 = Color3.fromRGB(0,255,160)
+    infoLabel.TextStrokeTransparency = 0.5
+    infoLabel.TextStrokeColor3 = Color3.new(0,0,0)
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.TextSize = 11
+    infoLabel.Text = ""
+
+    obj.hl = hl; obj.bb = bb; obj.infoLabel = infoLabel
+
+    local function attach()
+        local char = player.Character
+        if not char then return end
+        hl.Adornee = char; hl.Parent = workspace
+        bb.Adornee = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildOfClass("BasePart")
+        bb.Parent = char
+    end
+    attach()
+    player.CharacterAdded:Connect(attach)
+
+    obj.conn = RunService.Heartbeat:Connect(function()
+        local char = player.Character
+        if not char then return end
+        local hum  = char:FindFirstChildOfClass("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local myRoot = GetMyRoot()
+        if not hum or not root or not myRoot then return end
+        local dist = math.floor((root.Position - myRoot.Position).Magnitude)
+        if dist > Config.EspMaxDist then
+            hl.Parent = nil; bb.Parent = nil; return
+        else
+            if hl.Parent ~= workspace then hl.Parent = workspace end
+            if bb.Parent ~= char then bb.Parent = char end
+        end
+        local hp = hum.Health / hum.MaxHealth
+        if Target and Target == player then
+            hl.Color3 = Color3.fromRGB(255,50,50)
+        elseif Whitelist[player.Name] then
+            hl.Color3 = Color3.fromRGB(0,255,100)
+        elseif hp < 0.35 then
+            hl.Color3 = Color3.fromRGB(255,100,0)
+        else
+            hl.Color3 = Config.EspBoxColor
+        end
+        local info = ""
+        if Config.EspHealthBar then info = info .. string.format("♥%d%%", math.floor(hp*100)) end
+        if Config.EspDistance   then info = info .. string.format("  %dm", dist) end
+        if Whitelist[player.Name] then info = info .. "  ✅" end
+        infoLabel.Text = info
+    end)
+    return obj
+end
+
+local function ClearEsp()
+    for _, obj in pairs(EspObjects) do
+        if obj.hl   then pcall(function() obj.hl:Destroy()     end) end
+        if obj.bb   then pcall(function() obj.bb:Destroy()     end) end
+        if obj.conn then pcall(function() obj.conn:Disconnect() end) end
+    end
+    EspObjects = {}
+end
+
+local function ToggleEsp()
+    Config.EspEnabled = not Config.EspEnabled
+    if Config.EspEnabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then EspObjects[p] = CreateEspForPlayer(p) end
+        end
+        Players.PlayerAdded:Connect(function(p)
+            if Config.EspEnabled then EspObjects[p] = CreateEspForPlayer(p) end
+        end)
+        Players.PlayerRemoving:Connect(function(p)
+            if EspObjects[p] then
+                local o = EspObjects[p]
+                if o.hl   then pcall(function() o.hl:Destroy()     end) end
+                if o.bb   then pcall(function() o.bb:Destroy()     end) end
+                if o.conn then pcall(function() o.conn:Disconnect() end) end
+                EspObjects[p] = nil
+            end
+        end)
+    else
+        ClearEsp()
+    end
+    if UpdateGUI then UpdateGUI() end
+end
+
+-- ═══════════════════════════════
+--     CLEANUP (fechar script)
+-- ═══════════════════════════════
+
+local function Cleanup()
+    -- Desativa tudo
+    Config.AimEnabled = false
+    Config.EspEnabled = false
+
+    -- Para loop de aim
+    if AimConnection then AimConnection:Disconnect() end
+
+    -- Remove ESP
+    ClearEsp()
+
+    -- Remove FOV circle
+    if FovGui then
+        pcall(function() FovGui:Destroy() end)
+        FovGui = nil; FovRing = nil; FovCircle = nil
+    end
+
+    -- Restaura câmera
+    pcall(function()
+        Camera.CameraType = Enum.CameraType.Custom
+    end)
+
+    print("🧹 AimLock removido com sucesso.")
+end
+
+-- ═══════════════════════════════
+--              GUI
+-- ═══════════════════════════════
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AimLockGUI"; ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; ScreenGui.DisplayOrder = 999
+pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Janela Principal
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0,255,0,310); MainFrame.Position = UDim2.new(0.5,-127,0.06,0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10,10,18); MainFrame.BorderSizePixel = 0
+MainFrame.Active = true; MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,10)
+local MS = Instance.new("UIStroke", MainFrame)
+MS.Color = Color3.fromRGB(0,200,255); MS.Thickness = 1.5; MS.Transparency = 0.3
+
+-- Título
+local TitleBar = Instance.new("Frame", MainFrame)
+TitleBar.Size = UDim2.new(1,0,0,36); TitleBar.BackgroundColor3 = Color3.fromRGB(0,150,255)
+TitleBar.BorderSizePixel = 0
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0,10)
+local TF = Instance.new("Frame", TitleBar)
+TF.Size = UDim2.new(1,0,0.5,0); TF.Position = UDim2.new(0,0,0.5,0)
+TF.BackgroundColor3 = Color3.fromRGB(0,150,255); TF.BorderSizePixel = 0
+
+local TitleLbl = Instance.new("TextLabel", TitleBar)
+TitleLbl.Size = UDim2.new(1,-70,1,0); TitleLbl.Position = UDim2.new(0,12,0,0)
+TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = "🎯 AIM + ESP"
+TitleLbl.TextColor3 = Color3.fromRGB(255,255,255); TitleLbl.TextSize = 14
+TitleLbl.Font = Enum.Font.GothamBold; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinBtn = Instance.new("TextButton", TitleBar)
+MinBtn.Size = UDim2.new(0,26,0,26); MinBtn.Position = UDim2.new(1,-58,0,5)
+MinBtn.BackgroundColor3 = Color3.fromRGB(255,200,0); MinBtn.Text = "─"
+MinBtn.TextColor3 = Color3.fromRGB(60,40,0); MinBtn.TextSize = 13
+MinBtn.Font = Enum.Font.GothamBold; MinBtn.BorderSizePixel = 0
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0,6)
+
+local CloseBtn = Instance.new("TextButton", TitleBar)
+CloseBtn.Size = UDim2.new(0,26,0,26); CloseBtn.Position = UDim2.new(1,-28,0,5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255,55,55); CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255,255,255); CloseBtn.TextSize = 13
+CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.BorderSizePixel = 0
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0,6)
+
+-- Corpo
+local Body = Instance.new("Frame", MainFrame)
+Body.Name = "Body"; Body.Size = UDim2.new(1,0,1,-36)
+Body.Position = UDim2.new(0,0,0,36); Body.BackgroundTransparency = 1
+
+-- Status AIM
+local AimStatusLbl = Instance.new("TextLabel", Body)
+AimStatusLbl.Size = UDim2.new(1,-20,0,22); AimStatusLbl.Position = UDim2.new(0,10,0,8)
+AimStatusLbl.BackgroundTransparency = 1; AimStatusLbl.Text = "AIM:  DESLIGADO"
+AimStatusLbl.TextColor3 = Color3.fromRGB(180,180,200); AimStatusLbl.TextSize = 13
+AimStatusLbl.Font = Enum.Font.Gotham; AimStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+local AimDot = Instance.new("Frame", Body)
+AimDot.Size = UDim2.new(0,9,0,9); AimDot.Position = UDim2.new(0,45,0,14)
+AimDot.BackgroundColor3 = Color3.fromRGB(255,60,60); AimDot.BorderSizePixel = 0
+Instance.new("UICorner", AimDot).CornerRadius = UDim.new(1,0)
+
+local TargetLbl = Instance.new("TextLabel", Body)
+TargetLbl.Size = UDim2.new(1,-20,0,18); TargetLbl.Position = UDim2.new(0,10,0,34)
+TargetLbl.BackgroundTransparency = 1; TargetLbl.Text = "ALVO:  nenhum"
+TargetLbl.TextColor3 = Color3.fromRGB(100,160,255); TargetLbl.TextSize = 11
+TargetLbl.Font = Enum.Font.Gotham; TargetLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+local function MkDiv(y)
+    local d = Instance.new("Frame", Body)
+    d.Size = UDim2.new(1,-20,0,1); d.Position = UDim2.new(0,10,0,y)
+    d.BackgroundColor3 = Color3.fromRGB(0,180,255); d.BackgroundTransparency = 0.75
+    d.BorderSizePixel = 0
+end
+MkDiv(58)
+
+local AimBtn = Instance.new("TextButton", Body)
+AimBtn.Size = UDim2.new(1,-20,0,33); AimBtn.Position = UDim2.new(0,10,0,65)
+AimBtn.BackgroundColor3 = Color3.fromRGB(0,100,200); AimBtn.Text = "[ T ]  ATIVAR AIM LOCK"
+AimBtn.TextColor3 = Color3.fromRGB(255,255,255); AimBtn.TextSize = 12
+AimBtn.Font = Enum.Font.GothamBold; AimBtn.BorderSizePixel = 0
+Instance.new("UICorner", AimBtn).CornerRadius = UDim.new(0,8)
+local AimS = Instance.new("UIStroke", AimBtn)
+AimS.Color = Color3.fromRGB(0,200,255); AimS.Thickness = 1; AimS.Transparency = 0.6
+
+MkDiv(106)
+
+-- FOV Slider
+local FovLabel = Instance.new("TextLabel", Body)
+FovLabel.Size = UDim2.new(1,-20,0,18); FovLabel.Position = UDim2.new(0,10,0,112)
+FovLabel.BackgroundTransparency = 1
+FovLabel.Text = string.format("FOV:  %d", Config.FovSize)
+FovLabel.TextColor3 = Color3.fromRGB(255,220,80); FovLabel.TextSize = 12
+FovLabel.Font = Enum.Font.GothamBold; FovLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Trilho do slider
+local SliderTrack = Instance.new("Frame", Body)
+SliderTrack.Size = UDim2.new(1,-20,0,8); SliderTrack.Position = UDim2.new(0,10,0,135)
+SliderTrack.BackgroundColor3 = Color3.fromRGB(30,30,50); SliderTrack.BorderSizePixel = 0
+Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(1,0)
+local TrackStroke = Instance.new("UIStroke", SliderTrack)
+TrackStroke.Color = Color3.fromRGB(80,80,120); TrackStroke.Thickness = 1
+
+-- Fill do slider
+local SliderFill = Instance.new("Frame", SliderTrack)
+SliderFill.Size = UDim2.new(Config.FovSize/300, 0, 1, 0)
+SliderFill.BackgroundColor3 = Color3.fromRGB(255,220,80); SliderFill.BorderSizePixel = 0
+Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1,0)
+
+-- Bolinha do slider
+local SliderKnob = Instance.new("Frame", SliderTrack)
+SliderKnob.Size = UDim2.new(0,16,0,16); SliderKnob.AnchorPoint = Vector2.new(0.5,0.5)
+SliderKnob.Position = UDim2.new(Config.FovSize/300, 0, 0.5, 0)
+SliderKnob.BackgroundColor3 = Color3.fromRGB(255,255,255); SliderKnob.BorderSizePixel = 0
+Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1,0)
+local KnobStroke = Instance.new("UIStroke", SliderKnob)
+KnobStroke.Color = Color3.fromRGB(255,220,80); KnobStroke.Thickness = 2
+
+-- Slider drag logic
+local dragging = false
+SliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+    end
+end)
+SliderTrack.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+    and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    local trackPos   = SliderTrack.AbsolutePosition.X
+    local trackWidth = SliderTrack.AbsoluteSize.X
+    local relX = math.clamp((input.Position.X - trackPos) / trackWidth, 0, 1)
+    -- FOV de 10 a 300
+    Config.FovSize = math.floor(10 + relX * 290)
+    SliderFill.Size = UDim2.new(relX, 0, 1, 0)
+    SliderKnob.Position = UDim2.new(relX, 0, 0.5, 0)
+    FovLabel.Text = string.format("FOV:  %d", Config.FovSize)
+    if FovRing then
+        local d = Config.FovSize * 2
+        FovRing.Size = UDim2.new(0, d, 0, d)
+        FovRing.Position = UDim2.new(0, -Config.FovSize, 0, -Config.FovSize)
+    end
+end)
+
+MkDiv(153)
+
+-- Status ESP
+local EspStatusLbl = Instance.new("TextLabel", Body)
+EspStatusLbl.Size = UDim2.new(1,-20,0,22); EspStatusLbl.Position = UDim2.new(0,10,0,160)
+EspStatusLbl.BackgroundTransparency = 1; EspStatusLbl.Text = "ESP:  DESLIGADO"
+EspStatusLbl.TextColor3 = Color3.fromRGB(180,180,200); EspStatusLbl.TextSize = 13
+EspStatusLbl.Font = Enum.Font.Gotham; EspStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+local EspDot = Instance.new("Frame", Body)
+EspDot.Size = UDim2.new(0,9,0,9); EspDot.Position = UDim2.new(0,44,0,166)
+EspDot.BackgroundColor3 = Color3.fromRGB(255,60,60); EspDot.BorderSizePixel = 0
+Instance.new("UICorner", EspDot).CornerRadius = UDim.new(1,0)
+
+local EspBtn = Instance.new("TextButton", Body)
+EspBtn.Size = UDim2.new(1,-20,0,33); EspBtn.Position = UDim2.new(0,10,0,186)
+EspBtn.BackgroundColor3 = Color3.fromRGB(80,0,180); EspBtn.Text = "[ E ]  ATIVAR ESP"
+EspBtn.TextColor3 = Color3.fromRGB(255,255,255); EspBtn.TextSize = 12
+EspBtn.Font = Enum.Font.GothamBold; EspBtn.BorderSizePixel = 0
+Instance.new("UICorner", EspBtn).CornerRadius = UDim.new(0,8)
+local EspS = Instance.new("UIStroke", EspBtn)
+EspS.Color = Color3.fromRGB(180,100,255); EspS.Thickness = 1; EspS.Transparency = 0.6
+
+MkDiv(227)
+
+local WLBtn = Instance.new("TextButton", Body)
+WLBtn.Size = UDim2.new(1,-20,0,33); WLBtn.Position = UDim2.new(0,10,0,234)
+WLBtn.BackgroundColor3 = Color3.fromRGB(30,30,55); WLBtn.Text = "[ I ]  VER LISTA PRÓXIMOS"
+WLBtn.TextColor3 = Color3.fromRGB(200,200,255); WLBtn.TextSize = 12
+WLBtn.Font = Enum.Font.GothamBold; WLBtn.BorderSizePixel = 0
+Instance.new("UICorner", WLBtn).CornerRadius = UDim.new(0,8)
+local WLS = Instance.new("UIStroke", WLBtn)
+WLS.Color = Color3.fromRGB(100,100,255); WLS.Thickness = 1; WLS.Transparency = 0.5
+
+-- ── Janela Whitelist ──────────────────────────
+local WLFrame = Instance.new("Frame", ScreenGui)
+WLFrame.Size = UDim2.new(0,220,0,268); WLFrame.Position = UDim2.new(0.5,140,0.06,0)
+WLFrame.BackgroundColor3 = Color3.fromRGB(10,10,20); WLFrame.BorderSizePixel = 0
+WLFrame.Active = true; WLFrame.Draggable = true; WLFrame.Visible = false
+Instance.new("UICorner", WLFrame).CornerRadius = UDim.new(0,10)
+local WLS2 = Instance.new("UIStroke", WLFrame)
+WLS2.Color = Color3.fromRGB(100,100,255); WLS2.Thickness = 1.5; WLS2.Transparency = 0.3
+
+local WLTitle = Instance.new("Frame", WLFrame)
+WLTitle.Size = UDim2.new(1,0,0,34); WLTitle.BackgroundColor3 = Color3.fromRGB(50,0,160)
+WLTitle.BorderSizePixel = 0
+Instance.new("UICorner", WLTitle).CornerRadius = UDim.new(0,10)
+local WLTFix = Instance.new("Frame", WLTitle)
+WLTFix.Size = UDim2.new(1,0,0.5,0); WLTFix.Position = UDim2.new(0,0,0.5,0)
+WLTFix.BackgroundColor3 = Color3.fromRGB(50,0,160); WLTFix.BorderSizePixel = 0
+
+local WLTitleLbl = Instance.new("TextLabel", WLTitle)
+WLTitleLbl.Size = UDim2.new(1,-40,1,0); WLTitleLbl.Position = UDim2.new(0,10,0,0)
+WLTitleLbl.BackgroundTransparency = 1; WLTitleLbl.Text = "👥 LISTA PRÓXIMOS"
+WLTitleLbl.TextColor3 = Color3.fromRGB(255,255,255); WLTitleLbl.TextSize = 13
+WLTitleLbl.Font = Enum.Font.GothamBold; WLTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+local WLCloseBtn = Instance.new("TextButton", WLTitle)
+WLCloseBtn.Size = UDim2.new(0,24,0,24); WLCloseBtn.Position = UDim2.new(1,-28,0,5)
+WLCloseBtn.BackgroundColor3 = Color3.fromRGB(255,55,55); WLCloseBtn.Text = "✕"
+WLCloseBtn.TextColor3 = Color3.fromRGB(255,255,255); WLCloseBtn.TextSize = 12
+WLCloseBtn.Font = Enum.Font.GothamBold; WLCloseBtn.BorderSizePixel = 0
+Instance.new("UICorner", WLCloseBtn).CornerRadius = UDim.new(0,5)
+
+local WLLegend = Instance.new("TextLabel", WLFrame)
+WLLegend.Size = UDim2.new(1,-16,0,16); WLLegend.Position = UDim2.new(0,8,0,40)
+WLLegend.BackgroundTransparency = 1; WLLegend.Text = "Clique pra ignorar  ✅ = ignorando"
+WLLegend.TextColor3 = Color3.fromRGB(90,90,130); WLLegend.TextSize = 10
+WLLegend.Font = Enum.Font.Gotham; WLLegend.TextXAlignment = Enum.TextXAlignment.Left
+
+local WLList = Instance.new("Frame", WLFrame)
+WLList.Name = "WLList"; WLList.Size = UDim2.new(1,-16,0,192)
+WLList.Position = UDim2.new(0,8,0,60); WLList.BackgroundTransparency = 1
+
+local WLUpdateLbl = Instance.new("TextLabel", WLFrame)
+WLUpdateLbl.Size = UDim2.new(1,-16,0,14); WLUpdateLbl.Position = UDim2.new(0,8,0,254)
+WLUpdateLbl.BackgroundTransparency = 1; WLUpdateLbl.Text = "Atualiza automático..."
+WLUpdateLbl.TextColor3 = Color3.fromRGB(55,55,85); WLUpdateLbl.TextSize = 10
+WLUpdateLbl.Font = Enum.Font.Gotham; WLUpdateLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Botões Mobile
+local MobileBtn = Instance.new("TextButton", ScreenGui)
+MobileBtn.Size = UDim2.new(0,54,0,54); MobileBtn.Position = UDim2.new(0,20,1,-76)
+MobileBtn.BackgroundColor3 = Color3.fromRGB(0,140,255); MobileBtn.Text = "🎯"
+MobileBtn.TextSize = 22; MobileBtn.Font = Enum.Font.GothamBold
+MobileBtn.BorderSizePixel = 0; MobileBtn.ZIndex = 10
+Instance.new("UICorner", MobileBtn).CornerRadius = UDim.new(1,0)
+local MobS = Instance.new("UIStroke", MobileBtn); MobS.Color = Color3.fromRGB(0,220,255); MobS.Thickness = 2
+
+local MobileEspBtn = Instance.new("TextButton", ScreenGui)
+MobileEspBtn.Size = UDim2.new(0,54,0,54); MobileEspBtn.Position = UDim2.new(0,82,1,-76)
+MobileEspBtn.BackgroundColor3 = Color3.fromRGB(80,0,180); MobileEspBtn.Text = "👁"
+MobileEspBtn.TextSize = 22; MobileEspBtn.Font = Enum.Font.GothamBold
+MobileEspBtn.BorderSizePixel = 0; MobileEspBtn.ZIndex = 10
+Instance.new("UICorner", MobileEspBtn).CornerRadius = UDim.new(1,0)
+local MobESP = Instance.new("UIStroke", MobileEspBtn); MobESP.Color = Color3.fromRGB(180,100,255); MobESP.Thickness = 2
+
+local MobileWLBtn = Instance.new("TextButton", ScreenGui)
+MobileWLBtn.Size = UDim2.new(0,54,0,54); MobileWLBtn.Position = UDim2.new(0,144,1,-76)
+MobileWLBtn.BackgroundColor3 = Color3.fromRGB(30,0,100); MobileWLBtn.Text = "👥"
+MobileWLBtn.TextSize = 22; MobileWLBtn.Font = Enum.Font.GothamBold
+MobileWLBtn.BorderSizePixel = 0; MobileWLBtn.ZIndex = 10
+Instance.new("UICorner", MobileWLBtn).CornerRadius = UDim.new(1,0)
+local MobWL = Instance.new("UIStroke", MobileWLBtn); MobWL.Color = Color3.fromRGB(100,100,255); MobWL.Thickness = 2
+
+-- ═══════════════════════════════
+--     REFRESH WHITELIST UI
+-- ═══════════════════════════════
+
+function RefreshWhitelistUI()
+    for _, child in ipairs(WLList:GetChildren()) do child:Destroy() end
+    if #NearbyList == 0 then
+        local el = Instance.new("TextLabel", WLList)
+        el.Size = UDim2.new(1,0,0,34); el.BackgroundTransparency = 1
+        el.Text = "Nenhum jogador próximo"
+        el.TextColor3 = Color3.fromRGB(80,80,120); el.TextSize = 12
+        el.Font = Enum.Font.Gotham
+        return
+    end
+    for i, entry in ipairs(NearbyList) do
+        local player = entry.player
+        local dist   = math.floor(entry.dist)
+        local isWL   = Whitelist[player.Name] == true
+        local btn = Instance.new("TextButton", WLList)
+        btn.Size = UDim2.new(1,0,0,40); btn.Position = UDim2.new(0,0,0,(i-1)*44)
+        btn.BackgroundColor3 = isWL and Color3.fromRGB(0,70,25) or Color3.fromRGB(18,18,36)
+        btn.BorderSizePixel = 0; btn.Text = ""
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0,7)
+        local bS = Instance.new("UIStroke", btn)
+        bS.Color = isWL and Color3.fromRGB(0,210,80) or Color3.fromRGB(55,55,110)
+        bS.Thickness = 1; bS.Transparency = 0.35
+        local nameLbl = Instance.new("TextLabel", btn)
+        nameLbl.Size = UDim2.new(1,-52,1,0); nameLbl.Position = UDim2.new(0,10,0,0)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = player.Name
+        nameLbl.TextColor3 = isWL and Color3.fromRGB(0,255,120) or Color3.fromRGB(220,220,255)
+        nameLbl.TextSize = 13; nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        local distLbl = Instance.new("TextLabel", btn)
+        distLbl.Size = UDim2.new(0,44,1,0); distLbl.Position = UDim2.new(1,-48,0,0)
+        distLbl.BackgroundTransparency = 1; distLbl.Text = dist.."m"
+        distLbl.TextColor3 = Color3.fromRGB(100,140,255); distLbl.TextSize = 11
+        distLbl.Font = Enum.Font.Gotham; distLbl.TextXAlignment = Enum.TextXAlignment.Right
+        if isWL then
+            local badge = Instance.new("TextLabel", btn)
+            badge.Size = UDim2.new(0,22,0,22); badge.Position = UDim2.new(0,10,0.5,-11)
+            badge.BackgroundTransparency = 1; badge.Text = "✅"
+            badge.TextSize = 14; badge.Font = Enum.Font.Gotham
+            nameLbl.Position = UDim2.new(0,30,0,0)
+        end
+        btn.MouseButton1Click:Connect(function()
+            if Whitelist[player.Name] then
+                Whitelist[player.Name] = nil
+            else
+                Whitelist[player.Name] = true
+                if Target and Target == player then
+                    Target = GetNearestPlayer()
+                    if UpdateGUI then UpdateGUI() end
+                end
+            end
+            RefreshWhitelistUI()
+        end)
+    end
+    if WLUpdateLbl and WLUpdateLbl.Parent then
+        WLUpdateLbl.Text = "✓ Atualizado"
+        task.delay(1, function()
+            if WLUpdateLbl and WLUpdateLbl.Parent then
+                WLUpdateLbl.Text = "Atualiza a cada "..Config.WhitelistUpdate.."s"
+            end
+        end)
+    end
+end
+
+-- ═══════════════════════════════
+--        UPDATE GUI
+-- ═══════════════════════════════
+
+local aimDotTween = nil
+local espDotTween = nil
+
+function UpdateGUI()
+    if Config.AimEnabled then
+        AimStatusLbl.Text = "AIM:  LIGADO"
+        AimStatusLbl.TextColor3 = Color3.fromRGB(0,255,160)
+        AimDot.BackgroundColor3 = Color3.fromRGB(0,255,120)
+        AimBtn.BackgroundColor3 = Color3.fromRGB(20,180,80)
+        AimBtn.Text = "[ T ]  DESATIVAR AIM LOCK"
+        MobileBtn.BackgroundColor3 = Color3.fromRGB(20,200,80)
+        MobileBtn.Text = "🔒"
+        if aimDotTween then aimDotTween:Cancel() end
+        aimDotTween = TweenService:Create(AimDot,
+            TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            { BackgroundTransparency = 0.6 })
+        aimDotTween:Play()
+    else
+        AimStatusLbl.Text = "AIM:  DESLIGADO"
+        AimStatusLbl.TextColor3 = Color3.fromRGB(180,180,200)
+        AimDot.BackgroundColor3 = Color3.fromRGB(255,60,60)
+        AimDot.BackgroundTransparency = 0
+        AimBtn.BackgroundColor3 = Color3.fromRGB(0,100,200)
+        AimBtn.Text = "[ T ]  ATIVAR AIM LOCK"
+        MobileBtn.BackgroundColor3 = Color3.fromRGB(0,140,255)
+        MobileBtn.Text = "🎯"
+        if aimDotTween then aimDotTween:Cancel() end
+        TargetLbl.Text = "ALVO:  nenhum"
+        TargetLbl.TextColor3 = Color3.fromRGB(100,160,255)
+    end
+    if Config.EspEnabled then
+        EspStatusLbl.Text = "ESP:  LIGADO"
+        EspStatusLbl.TextColor3 = Color3.fromRGB(180,100,255)
+        EspDot.BackgroundColor3 = Color3.fromRGB(180,80,255)
+        EspBtn.BackgroundColor3 = Color3.fromRGB(120,0,220)
+        EspBtn.Text = "[ E ]  DESATIVAR ESP"
+        MobileEspBtn.BackgroundColor3 = Color3.fromRGB(120,0,220)
+        MobileEspBtn.Text = "🚫"
+        if espDotTween then espDotTween:Cancel() end
+        espDotTween = TweenService:Create(EspDot,
+            TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            { BackgroundTransparency = 0.6 })
+        espDotTween:Play()
+    else
+        EspStatusLbl.Text = "ESP:  DESLIGADO"
+        EspStatusLbl.TextColor3 = Color3.fromRGB(180,180,200)
+        EspDot.BackgroundColor3 = Color3.fromRGB(255,60,60)
+        EspDot.BackgroundTransparency = 0
+        EspBtn.BackgroundColor3 = Color3.fromRGB(80,0,180)
+        EspBtn.Text = "[ E ]  ATIVAR ESP"
+        MobileEspBtn.BackgroundColor3 = Color3.fromRGB(80,0,180)
+        MobileEspBtn.Text = "👁"
+        if espDotTween then espDotTween:Cancel() end
+    end
+end
+
+-- Heartbeat
+RunService.Heartbeat:Connect(function()
+    if Config.AimEnabled then
+        if Target and IsAlive(Target) then
+            TargetLbl.Text = "ALVO:  " .. Target.Name
+            TargetLbl.TextColor3 = Color3.fromRGB(0,255,160)
+        else
+            TargetLbl.Text = "ALVO:  procurando..."
+            TargetLbl.TextColor3 = Color3.fromRGB(255,200,0)
+        end
+    end
+    local now = tick()
+    if now - lastListUpdate >= Config.WhitelistUpdate then
+        lastListUpdate = now
+        UpdateNearbyList()
+    end
+end)
+
+-- ═══════════════════════════════
+--     MINIMIZAR / FECHAR
+-- ═══════════════════════════════
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        Body.Visible = false
+        TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), { Size = UDim2.new(0,255,0,36) }):Play()
+        MinBtn.Text = "▢"
+    else
+        Body.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), { Size = UDim2.new(0,255,0,310) }):Play()
+        MinBtn.Text = "─"
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    Cleanup()
+    TweenService:Create(MainFrame, TweenInfo.new(0.2), { Size = UDim2.new(0,0,0,0), BackgroundTransparency = 1 }):Play()
+    task.wait(0.25)
+    ScreenGui:Destroy()
+end)
+
+WLCloseBtn.MouseButton1Click:Connect(function() WLFrame.Visible = false end)
+
+local function ToggleWL()
+    WLFrame.Visible = not WLFrame.Visible
+    if WLFrame.Visible then UpdateNearbyList() end
+end
+
+-- ═══════════════════════════════
+--     CONTROLES
+-- ═══════════════════════════════
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Config.ToggleKey    then ToggleAim() end
+    if input.KeyCode == Config.EspToggleKey then ToggleEsp() end
+    if input.KeyCode == Config.WhitelistKey then ToggleWL()  end
+end)
+
+AimBtn.MouseButton1Click:Connect(ToggleAim)
+EspBtn.MouseButton1Click:Connect(ToggleEsp)
+WLBtn.MouseButton1Click:Connect(ToggleWL)
+MobileBtn.MouseButton1Click:Connect(ToggleAim)
+MobileEspBtn.MouseButton1Click:Connect(ToggleEsp)
+MobileWLBtn.MouseButton1Click:Connect(ToggleWL)
+
+for _, btn in ipairs({ AimBtn, EspBtn, WLBtn }) do
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundTransparency = 0.25 }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundTransparency = 0 }):Play()
+    end)
+end
+
+-- ═══════════════════════════════
+--     START
+-- ═══════════════════════════════
+CreateFovCircle()
+StartAimLoop()
+UpdateGUI()
+UpdateNearbyList()
+print("✅ AimLock + ESP + FOV + Whitelist!  T=Aim  E=ESP  I=Lista")
