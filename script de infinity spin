@@ -1,0 +1,114 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local localPlayer = Players.LocalPlayer
+
+local running = false
+local antiAfk = nil
+local rewardId = 1
+
+local Window = Rayfield:CreateWindow({
+   Name = "Moonpol HUB",
+   LoadingTitle = "Lucky Spin",
+   LoadingSubtitle = "Inicializando...",
+   Theme = "AmberGlow",
+   ToggleUIKeybind = "F8",
+   ConfigurationSaving = {
+      Enabled = true,
+      FileName = "Trix"
+   }
+})
+
+local tabAutomation = Window:CreateTab("LuckySpin", 4483362458)
+local tabPlayer = Window:CreateTab("Jogador", 4483362458)
+local tabUI = Window:CreateTab("Menu", 4483362458)
+
+tabAutomation:CreateSection("Recompensas")
+
+tabAutomation:CreateToggle({
+   Name = "Auto Coletar Recompensas",
+   CurrentValue = false,
+   Flag = "AutoRewards",
+   Callback = function(state)
+      running = state
+
+      if running then
+         local claim = ReplicatedStorage
+            :WaitForChild("Packages")
+            :WaitForChild("_Index")
+            :WaitForChild("sleitnick_knit@1.7.0")
+            :WaitForChild("knit")
+            :WaitForChild("Services")
+            :WaitForChild("ChallengeService")
+            :WaitForChild("RF")
+            :WaitForChild("ClaimReward")
+
+         for t = 1, 50 do
+            task.spawn(function()
+               local localId = rewardId + (t * 10000)
+               while running do
+                  claim:InvokeServer(localId)
+                  localId += 10000
+               end
+            end)
+         end
+
+         Rayfield:Notify({
+            Title = "✅ Iniciado",
+            Content = "Coletando em 50 threads!",
+            Duration = 3
+         })
+      else
+         Rayfield:Notify({
+            Title = "⛔ Parado",
+            Content = "Coleta encerrada.",
+            Duration = 2
+         })
+      end
+   end
+})
+
+tabPlayer:CreateSection("Jogador")
+
+tabPlayer:CreateToggle({
+   Name = "Anti-AFK",
+   CurrentValue = false,
+   Flag = "AntiAfk",
+   Callback = function(enabled)
+      if enabled then
+         if antiAfk then antiAfk:Disconnect() end
+         antiAfk = localPlayer.Idled:Connect(function()
+            VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+         end)
+      else
+         if antiAfk then
+            antiAfk:Disconnect()
+            antiAfk = nil
+         end
+      end
+   end
+})
+
+tabUI:CreateSection("Interface")
+
+tabUI:CreateButton({
+   Name = "Fechar Interface",
+   Callback = function()
+      Rayfield:Destroy()
+   end
+})
+
+tabUI:CreateParagraph({
+   Title = "Atalho",
+   Content = "Pressione F8 para abrir ou esconder o menu."
+})
+
+Rayfield:Notify({
+   Title = "Moonpol HUB",
+   Content = "Script carregado!",
+   Duration = 3
+})
