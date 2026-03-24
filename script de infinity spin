@@ -1,114 +1,528 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
 local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
 
 local running = false
 local antiAfk = nil
 local rewardId = 1
+local minimized = false
 
-local Window = Rayfield:CreateWindow({
-   Name = "Moonpol HUB",
-   LoadingTitle = "Lucky Spin",
-   LoadingSubtitle = "Inicializando...",
-   Theme = "AmberGlow",
-   ToggleUIKeybind = "F8",
-   ConfigurationSaving = {
-      Enabled = true,
-      FileName = "Trix"
-   }
-})
+-- ╔══════════════╗
+-- ║   GUI BASE   ║
+-- ╚══════════════╝
 
-local tabAutomation = Window:CreateTab("LuckySpin", 4483362458)
-local tabPlayer = Window:CreateTab("Jogador", 4483362458)
-local tabUI = Window:CreateTab("Menu", 4483362458)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MoonpolHUB"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = playerGui
 
-tabAutomation:CreateSection("Recompensas")
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 400, 0, 320)
+Main.Position = UDim2.new(0.5, -200, 0.5, -160)
+Main.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Parent = ScreenGui
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
 
-tabAutomation:CreateToggle({
-   Name = "Auto Coletar Recompensas",
-   CurrentValue = false,
-   Flag = "AutoRewards",
-   Callback = function(state)
-      running = state
+-- ╔══════════════╗
+-- ║   TOPBAR     ║
+-- ╚══════════════╝
 
-      if running then
-         local claim = ReplicatedStorage
-            :WaitForChild("Packages")
-            :WaitForChild("_Index")
-            :WaitForChild("sleitnick_knit@1.7.0")
-            :WaitForChild("knit")
-            :WaitForChild("Services")
-            :WaitForChild("ChallengeService")
-            :WaitForChild("RF")
-            :WaitForChild("ClaimReward")
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 52)
+TopBar.BackgroundColor3 = Color3.fromRGB(250, 250, 250)
+TopBar.BorderSizePixel = 0
+TopBar.ZIndex = 2
+TopBar.Parent = Main
 
-         for t = 1, 50 do
-            task.spawn(function()
-               local localId = rewardId + (t * 10000)
-               while running do
-                  claim:InvokeServer(localId)
-                  localId += 10000
-               end
-            end)
-         end
+local TopDivider = Instance.new("Frame")
+TopDivider.Size = UDim2.new(1, 0, 0, 1)
+TopDivider.Position = UDim2.new(0, 0, 1, -1)
+TopDivider.BackgroundColor3 = Color3.fromRGB(235, 235, 235)
+TopDivider.BorderSizePixel = 0
+TopDivider.Parent = TopBar
 
-         Rayfield:Notify({
-            Title = "✅ Iniciado",
-            Content = "Coletando em 50 threads!",
-            Duration = 3
-         })
-      else
-         Rayfield:Notify({
-            Title = "⛔ Parado",
-            Content = "Coleta encerrada.",
-            Duration = 2
-         })
-      end
-   end
-})
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -100, 0, 20)
+TitleLabel.Position = UDim2.new(0, 14, 0, 8)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Moonpol HUB"
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 14
+TitleLabel.TextColor3 = Color3.fromRGB(17, 17, 17)
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
 
-tabPlayer:CreateSection("Jogador")
+local SubLabel = Instance.new("TextLabel")
+SubLabel.Size = UDim2.new(1, -100, 0, 14)
+SubLabel.Position = UDim2.new(0, 14, 0, 30)
+SubLabel.BackgroundTransparency = 1
+SubLabel.Text = "Lucky Spin"
+SubLabel.Font = Enum.Font.Gotham
+SubLabel.TextSize = 11
+SubLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
+SubLabel.TextXAlignment = Enum.TextXAlignment.Left
+SubLabel.Parent = TopBar
 
-tabPlayer:CreateToggle({
-   Name = "Anti-AFK",
-   CurrentValue = false,
-   Flag = "AntiAfk",
-   Callback = function(enabled)
-      if enabled then
-         if antiAfk then antiAfk:Disconnect() end
-         antiAfk = localPlayer.Idled:Connect(function()
-            VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+local BtnMin = Instance.new("TextButton")
+BtnMin.Size = UDim2.new(0, 28, 0, 28)
+BtnMin.Position = UDim2.new(1, -68, 0.5, -14)
+BtnMin.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+BtnMin.Text = "—"
+BtnMin.Font = Enum.Font.GothamBold
+BtnMin.TextSize = 13
+BtnMin.TextColor3 = Color3.fromRGB(100, 100, 100)
+BtnMin.BorderSizePixel = 0
+BtnMin.ZIndex = 3
+BtnMin.Parent = TopBar
+Instance.new("UICorner", BtnMin).CornerRadius = UDim.new(0, 8)
+
+local BtnClose = Instance.new("TextButton")
+BtnClose.Size = UDim2.new(0, 28, 0, 28)
+BtnClose.Position = UDim2.new(1, -34, 0.5, -14)
+BtnClose.BackgroundColor3 = Color3.fromRGB(255, 90, 90)
+BtnClose.Text = "✕"
+BtnClose.Font = Enum.Font.GothamBold
+BtnClose.TextSize = 13
+BtnClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnClose.BorderSizePixel = 0
+BtnClose.ZIndex = 3
+BtnClose.Parent = TopBar
+Instance.new("UICorner", BtnClose).CornerRadius = UDim.new(0, 8)
+
+-- ╔══════════════╗
+-- ║   TABBAR     ║
+-- ╚══════════════╝
+
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 36)
+TabBar.Position = UDim2.new(0, 0, 0, 52)
+TabBar.BackgroundTransparency = 1
+TabBar.BorderSizePixel = 0
+TabBar.ZIndex = 2
+TabBar.Parent = Main
+
+local TabBarDivider = Instance.new("Frame")
+TabBarDivider.Size = UDim2.new(1, 0, 0, 1)
+TabBarDivider.Position = UDim2.new(0, 0, 1, -1)
+TabBarDivider.BackgroundColor3 = Color3.fromRGB(235, 235, 235)
+TabBarDivider.BorderSizePixel = 0
+TabBarDivider.Parent = TabBar
+
+local TAB_NAMES = {"LuckySpin", "Jogador", "Menu"}
+local TAB_WIDTH = 400 / #TAB_NAMES
+
+local tabBtns = {}
+local tabUnderlines = {}
+local tabPages = {}
+
+-- cria os 3 botões de aba
+for i, name in ipairs(TAB_NAMES) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, TAB_WIDTH, 1, 0)
+    btn.Position = UDim2.new(0, (i - 1) * TAB_WIDTH, 0, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = name
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 12
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    btn.BorderSizePixel = 0
+    btn.ZIndex = 3
+    btn.Parent = TabBar
+
+    local underline = Instance.new("Frame")
+    underline.Size = UDim2.new(0, 0, 0, 2)
+    underline.Position = UDim2.new(0, TAB_WIDTH * 0.2, 1, -2)
+    underline.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
+    underline.BorderSizePixel = 0
+    underline.ZIndex = 4
+    underline.Parent = btn
+
+    tabBtns[i] = btn
+    tabUnderlines[i] = underline
+end
+
+-- ╔══════════════╗
+-- ║    PAGES     ║
+-- ╚══════════════╝
+
+-- container das páginas
+local PageContainer = Instance.new("Frame")
+PageContainer.Size = UDim2.new(1, 0, 1, -89)
+PageContainer.Position = UDim2.new(0, 0, 0, 89)
+PageContainer.BackgroundTransparency = 1
+PageContainer.ClipsDescendants = true
+PageContainer.BorderSizePixel = 0
+PageContainer.Parent = Main
+
+for i = 1, #TAB_NAMES do
+    local page = Instance.new("Frame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.Visible = false
+    page.Parent = PageContainer
+    tabPages[i] = page
+end
+
+-- ╔═══════════════════════╗
+-- ║  HELPERS DE LAYOUT    ║
+-- ╚═══════════════════════╝
+
+local function makeSection(parent, text, yOff)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -32, 0, 16)
+    lbl.Position = UDim2.new(0, 16, 0, yOff)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = string.upper(text)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 10
+    lbl.TextColor3 = Color3.fromRGB(190, 190, 190)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = parent
+end
+
+local function makeRow(parent, yOff, name, desc)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -32, 0, 52)
+    row.Position = UDim2.new(0, 16, 0, yOff)
+    row.BackgroundColor3 = Color3.fromRGB(250, 250, 250)
+    row.BorderSizePixel = 0
+    row.Parent = parent
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(230, 230, 230)
+    stroke.Thickness = 1
+    stroke.Parent = row
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -60, 0, 18)
+    lbl.Position = UDim2.new(0, 12, 0, 8)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = name
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextSize = 13
+    lbl.TextColor3 = Color3.fromRGB(17, 17, 17)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+
+    local sub = Instance.new("TextLabel")
+    sub.Size = UDim2.new(1, -60, 0, 14)
+    sub.Position = UDim2.new(0, 12, 0, 28)
+    sub.BackgroundTransparency = 1
+    sub.Text = desc
+    sub.Font = Enum.Font.Gotham
+    sub.TextSize = 11
+    sub.TextColor3 = Color3.fromRGB(170, 170, 170)
+    sub.TextXAlignment = Enum.TextXAlignment.Left
+    sub.Parent = row
+
+    return row
+end
+
+local function makeToggle(row)
+    -- trilho
+    local track = Instance.new("Frame")
+    track.Size = UDim2.new(0, 38, 0, 22)
+    track.Position = UDim2.new(1, -50, 0.5, -11)
+    track.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
+    track.BorderSizePixel = 0
+    track.Parent = row
+    Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+
+    -- bolinha
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 16, 0, 16)
+    knob.Position = UDim2.new(0, 3, 0.5, -8)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    knob.BorderSizePixel = 0
+    knob.ZIndex = track.ZIndex + 1
+    knob.Parent = track
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    -- área clicável em cima do trilho
+    local hitbox = Instance.new("TextButton")
+    hitbox.Size = UDim2.new(1, 0, 1, 0)
+    hitbox.BackgroundTransparency = 1
+    hitbox.Text = ""
+    hitbox.ZIndex = track.ZIndex + 2
+    hitbox.Parent = track
+
+    local state = false
+
+    local function setState(on)
+        state = on
+        local col = on and Color3.fromRGB(17, 17, 17) or Color3.fromRGB(220, 220, 220)
+        local pos = on and UDim2.new(0, 19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+        TweenService:Create(track, TweenInfo.new(0.18), {BackgroundColor3 = col}):Play()
+        TweenService:Create(knob, TweenInfo.new(0.18), {Position = pos}):Play()
+    end
+
+    return hitbox, setState, function() return state end
+end
+
+local function makeStatus(parent, yOff)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -32, 0, 16)
+    lbl.Position = UDim2.new(0, 16, 0, yOff)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "● Inativo"
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 11
+    lbl.TextColor3 = Color3.fromRGB(190, 190, 190)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = parent
+    return lbl
+end
+
+-- ╔══════════════════════╗
+-- ║  PAGE 1 — LUCKYSPIN  ║
+-- ╚══════════════════════╝
+
+local p1 = tabPages[1]
+makeSection(p1, "Recompensas", 14)
+local rowReward = makeRow(p1, 36, "Auto Coletar Recompensas", "50 threads · ClaimReward RF")
+local hitReward, setReward, getReward = makeToggle(rowReward)
+local statusReward = makeStatus(p1, 96)
+
+hitReward.MouseButton1Click:Connect(function()
+    local on = not getReward()
+    setReward(on)
+    running = on
+
+    if on then
+        statusReward.Text = "● Coletando em 50 threads..."
+        statusReward.TextColor3 = Color3.fromRGB(80, 180, 80)
+
+        local ok, claim = pcall(function()
+            return ReplicatedStorage
+                :WaitForChild("Packages")
+                :WaitForChild("_Index")
+                :WaitForChild("sleitnick_knit@1.7.0")
+                :WaitForChild("knit")
+                :WaitForChild("Services")
+                :WaitForChild("ChallengeService")
+                :WaitForChild("RF")
+                :WaitForChild("ClaimReward")
+        end)
+
+        if ok then
+            for t = 1, 50 do
+                task.spawn(function()
+                    local localId = rewardId + (t * 10000)
+                    while running do
+                        claim:InvokeServer(localId)
+                        localId += 10000
+                    end
+                end)
+            end
+        else
+            statusReward.Text = "● Erro: ClaimReward não encontrado"
+            statusReward.TextColor3 = Color3.fromRGB(220, 60, 60)
+            setReward(false)
+            running = false
+        end
+    else
+        statusReward.Text = "● Inativo"
+        statusReward.TextColor3 = Color3.fromRGB(190, 190, 190)
+    end
+end)
+
+-- ╔══════════════════════╗
+-- ║  PAGE 2 — JOGADOR    ║
+-- ╚══════════════════════╝
+
+local p2 = tabPages[2]
+makeSection(p2, "Jogador", 14)
+local rowAfk = makeRow(p2, 36, "Anti-AFK", "Evita kick por inatividade")
+local hitAfk, setAfk, getAfk = makeToggle(rowAfk)
+local statusAfk = makeStatus(p2, 96)
+
+hitAfk.MouseButton1Click:Connect(function()
+    local on = not getAfk()
+    setAfk(on)
+
+    if on then
+        statusAfk.Text = "● Ativo — Idled monitorado"
+        statusAfk.TextColor3 = Color3.fromRGB(80, 180, 80)
+        if antiAfk then antiAfk:Disconnect() end
+        antiAfk = localPlayer.Idled:Connect(function()
+            VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
             task.wait(1)
-            VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-         end)
-      else
-         if antiAfk then
+            VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        end)
+    else
+        statusAfk.Text = "● Inativo"
+        statusAfk.TextColor3 = Color3.fromRGB(190, 190, 190)
+        if antiAfk then
             antiAfk:Disconnect()
             antiAfk = nil
-         end
-      end
-   end
-})
+        end
+    end
+end)
 
-tabUI:CreateSection("Interface")
+-- ╔══════════════════════╗
+-- ║  PAGE 3 — MENU       ║
+-- ╚══════════════════════╝
 
-tabUI:CreateButton({
-   Name = "Fechar Interface",
-   Callback = function()
-      Rayfield:Destroy()
-   end
-})
+local p3 = tabPages[3]
+makeSection(p3, "Interface", 14)
 
-tabUI:CreateParagraph({
-   Title = "Atalho",
-   Content = "Pressione F8 para abrir ou esconder o menu."
-})
+local infoBox = Instance.new("Frame")
+infoBox.Size = UDim2.new(1, -32, 0, 56)
+infoBox.Position = UDim2.new(0, 16, 0, 36)
+infoBox.BackgroundColor3 = Color3.fromRGB(250, 250, 250)
+infoBox.BorderSizePixel = 0
+infoBox.Parent = p3
+Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 10)
+local s3 = Instance.new("UIStroke")
+s3.Color = Color3.fromRGB(230, 230, 230)
+s3.Thickness = 1
+s3.Parent = infoBox
 
-Rayfield:Notify({
-   Title = "Moonpol HUB",
-   Content = "Script carregado!",
-   Duration = 3
-})
+local infoLbl = Instance.new("TextLabel")
+infoLbl.Size = UDim2.new(1, -20, 1, 0)
+infoLbl.Position = UDim2.new(0, 10, 0, 0)
+infoLbl.BackgroundTransparency = 1
+infoLbl.Text = "Pressione F8 para mostrar ou esconder o menu."
+infoLbl.Font = Enum.Font.Gotham
+infoLbl.TextSize = 12
+infoLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+infoLbl.TextWrapped = true
+infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+infoLbl.Parent = infoBox
+
+local btnCloseUI = Instance.new("TextButton")
+btnCloseUI.Size = UDim2.new(1, -32, 0, 38)
+btnCloseUI.Position = UDim2.new(0, 16, 0, 102)
+btnCloseUI.BackgroundColor3 = Color3.fromRGB(255, 90, 90)
+btnCloseUI.Text = "Fechar Interface"
+btnCloseUI.Font = Enum.Font.GothamSemibold
+btnCloseUI.TextSize = 13
+btnCloseUI.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnCloseUI.BorderSizePixel = 0
+btnCloseUI.Parent = p3
+Instance.new("UICorner", btnCloseUI).CornerRadius = UDim.new(0, 10)
+
+btnCloseUI.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- ╔══════════════════════════╗
+-- ║   LÓGICA DE TROCA DE ABA ║
+-- ╚══════════════════════════╝
+
+local currentTab = 0  -- nenhuma aba ativa ainda
+
+local function selectTab(index)
+    if currentTab == index then return end
+    currentTab = index
+
+    for i = 1, #TAB_NAMES do
+        local isActive = (i == index)
+
+        -- texto e cor do botão
+        tabBtns[i].TextColor3 = isActive
+            and Color3.fromRGB(17, 17, 17)
+            or  Color3.fromRGB(180, 180, 180)
+        tabBtns[i].Font = isActive
+            and Enum.Font.GothamSemibold
+            or  Enum.Font.Gotham
+
+        -- underline animado
+        TweenService:Create(tabUnderlines[i], TweenInfo.new(0.15), {
+            Size = isActive
+                and UDim2.new(0, TAB_WIDTH * 0.6, 0, 2)
+                or  UDim2.new(0, 0, 0, 2)
+        }):Play()
+
+        -- mostrar/esconder página
+        tabPages[i].Visible = isActive
+    end
+end
+
+-- conecta clique em cada aba
+for i = 1, #TAB_NAMES do
+    local idx = i  -- captura local do índice (evita closure bug do Lua)
+    tabBtns[i].MouseButton1Click:Connect(function()
+        selectTab(idx)
+    end)
+end
+
+selectTab(1)  -- abre na primeira aba
+
+-- ╔══════════════════════╗
+-- ║  MINIMIZAR / FECHAR  ║
+-- ╚══════════════════════╝
+
+BtnMin.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    local targetSize = minimized
+        and UDim2.new(0, 400, 0, 52)
+        or  UDim2.new(0, 400, 0, 320)
+    TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+        Size = targetSize
+    }):Play()
+    BtnMin.Text = minimized and "▢" or "—"
+end)
+
+BtnClose.MouseButton1Click:Connect(function()
+    TweenService:Create(Main, TweenInfo.new(0.15), {
+        Size = UDim2.new(0, 400, 0, 0)
+    }):Play()
+    task.wait(0.18)
+    ScreenGui:Destroy()
+end)
+
+-- ╔══════════════════════╗
+-- ║        DRAG          ║
+-- ╚══════════════════════╝
+
+do
+    local dragging, dragStart, startPos
+
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            Main.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+
+-- ╔══════════════════════╗
+-- ║      ATALHO F8       ║
+-- ╚══════════════════════╝
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.F8 then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
