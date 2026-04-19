@@ -1,0 +1,1012 @@
+-- ╔══════════════════════════════════════════════╗
+-- ║           CAFAJESTE HUB  v3.2                ║
+-- ╚══════════════════════════════════════════════╝
+
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Camera           = workspace.CurrentCamera
+local LP               = Players.LocalPlayer
+
+local VALID_KEYS = { ["Devtest"]=true, ["Leandro"]=true, ["Renan"]=true }
+local PLACE_ID   = game.PlaceId
+local IS_MM2     = PLACE_ID == 142823291
+
+-- ═══════════════ TEMA ═══════════════
+local C = {
+    BG      = Color3.fromRGB(10, 10, 16),
+    SIDEBAR = Color3.fromRGB(15, 15, 23),
+    CARD    = Color3.fromRGB(22, 22, 34),
+    CARD_H  = Color3.fromRGB(30, 30, 46),
+    BORDER  = Color3.fromRGB(38, 38, 58),
+    ACCENT  = Color3.fromRGB(120, 80, 255),
+    ACCENT2 = Color3.fromRGB(170, 130, 255),
+    TEXT    = Color3.fromRGB(225, 225, 240),
+    MUTED   = Color3.fromRGB(85, 85, 110),
+    GREEN   = Color3.fromRGB(50,  210, 130),
+    RED     = Color3.fromRGB(255, 75,  75),
+    YELLOW  = Color3.fromRGB(255, 200, 50),
+    BLUE    = Color3.fromRGB(80,  155, 255),
+    WHITE   = Color3.new(1,1,1),
+    MM2     = Color3.fromRGB(210, 55, 55),
+}
+
+local FAST   = TweenInfo.new(0.15, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
+local MEDIUM = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local SPRING = TweenInfo.new(0.28, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
+
+-- ═══════════════ HELPERS ═══════════════
+local function New(cls, p)
+    local o = Instance.new(cls)
+    for k,v in pairs(p or {}) do if k ~= "Parent" then o[k]=v end end
+    if p and p.Parent then o.Parent = p.Parent end
+    return o
+end
+local function Corner(o, r) New("UICorner",{CornerRadius=UDim.new(0,r or 8),Parent=o}) end
+local function Stroke(o, c, t) New("UIStroke",{Color=c or C.BORDER,Thickness=t or 1,Parent=o}) end
+local function Pad(o, l, r, t, b)
+    New("UIPadding",{PaddingLeft=UDim.new(0,l or 0),PaddingRight=UDim.new(0,r or 0),
+        PaddingTop=UDim.new(0,t or 0),PaddingBottom=UDim.new(0,b or 0),Parent=o})
+end
+local function Tw(o, p, i) TweenService:Create(o, i or FAST, p):Play() end
+
+-- ═══════════════════════════════════════════════════
+--   KEY SCREEN 
+-- ═══════════════════════════════════════════════════
+local Gui = New("ScreenGui",{Name="CafajesteHUB",ResetOnSpawn=false,
+    ZIndexBehavior=Enum.ZIndexBehavior.Sibling,Parent=LP:WaitForChild("PlayerGui")})
+
+local KS = New("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.fromRGB(5,5,10),Parent=Gui})
+
+New("UIGradient",{Color=ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(18,10,35)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(5,5,12)),
+}),Rotation=135,Parent=KS})
+
+for i=1,6 do
+    local ln = New("Frame",{
+        Size=UDim2.new(0,1,1,0),
+        Position=UDim2.new(i/7,0,0,0),
+        BackgroundColor3=Color3.fromRGB(80,50,160),
+        BackgroundTransparency=0.92,
+        BorderSizePixel=0,
+        Parent=KS,
+    })
+end
+
+local KC = New("Frame",{
+    Size=UDim2.new(0,360,0,320),
+    Position=UDim2.new(0.5,-180,0.5,-160),
+    BackgroundColor3=Color3.fromRGB(14,14,22),
+    BorderSizePixel=0,
+    Parent=KS,
+})
+Corner(KC,18)
+New("UIStroke",{Color=C.ACCENT,Thickness=1.5,Parent=KC})
+
+local KTop = New("Frame",{
+    Size=UDim2.new(1,0,0,80),
+    BackgroundColor3=Color3.fromRGB(22,14,44),
+    BorderSizePixel=0,
+    Parent=KC,
+})
+Corner(KTop,18)
+New("Frame",{Size=UDim2.new(1,0,0,18),Position=UDim2.new(0,0,1,-18),
+    BackgroundColor3=Color3.fromRGB(22,14,44),BorderSizePixel=0,Parent=KTop})
+
+local KIcon = New("Frame",{
+    Size=UDim2.new(0,44,0,44),
+    Position=UDim2.new(0.5,-22,0,18),
+    BackgroundColor3=C.ACCENT,
+    BorderSizePixel=0,
+    Parent=KTop,
+})
+Corner(KIcon,14)
+New("TextLabel",{Size=UDim2.new(1,0,1,0),Text="⬡",Font=Enum.Font.GothamBold,
+    TextSize=22,TextColor3=C.WHITE,BackgroundTransparency=1,Parent=KIcon})
+
+New("TextLabel",{
+    Size=UDim2.new(1,-40,0,30),
+    Position=UDim2.new(0,20,0,88),
+    Text="Cafajeste HUB",
+    Font=Enum.Font.GothamBold,
+    TextSize=20,
+    TextColor3=C.TEXT,
+    BackgroundTransparency=1,
+    Parent=KC,
+})
+
+New("TextLabel",{
+    Size=UDim2.new(1,-40,0,18),
+    Position=UDim2.new(0,20,0,118),
+    Text="Autenticação necessária",
+    Font=Enum.Font.Gotham,
+    TextSize=11,
+    TextColor3=C.MUTED,
+    BackgroundTransparency=1,
+    Parent=KC,
+})
+
+New("Frame",{Size=UDim2.new(1,-40,0,1),Position=UDim2.new(0,20,0,140),
+    BackgroundColor3=C.BORDER,BorderSizePixel=0,Parent=KC})
+
+New("TextLabel",{
+    Size=UDim2.new(1,-40,0,16),
+    Position=UDim2.new(0,20,0,150),
+    Text="CHAVE DE ACESSO",
+    Font=Enum.Font.GothamBold,
+    TextSize=10,
+    TextColor3=C.MUTED,
+    BackgroundTransparency=1,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    Parent=KC,
+})
+
+local KB = New("TextBox",{
+    Size=UDim2.new(1,-40,0,44),
+    Position=UDim2.new(0,20,0,168),
+    BackgroundColor3=Color3.fromRGB(10,10,18),
+    BorderSizePixel=0,
+    Text="",
+    PlaceholderText="Digite a sua key...",
+    PlaceholderColor3=C.MUTED,
+    Font=Enum.Font.Gotham,
+    TextSize=14,
+    TextColor3=C.TEXT,
+    ClearTextOnFocus=false,
+    Parent=KC,
+})
+Corner(KB,10)
+Stroke(KB,C.BORDER,1)
+Pad(KB,14,14,0,0)
+
+KB.Focused:Connect(function() Tw(KB,{},FAST); New("UIStroke",{}) end)
+
+local KStat = New("TextLabel",{
+    Size=UDim2.new(1,-40,0,16),
+    Position=UDim2.new(0,20,0,215),
+    Text="",
+    Font=Enum.Font.Gotham,
+    TextSize=10,
+    TextColor3=C.RED,
+    BackgroundTransparency=1,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    Parent=KC,
+})
+
+local KBtn = New("TextButton",{
+    Size=UDim2.new(1,-40,0,44),
+    Position=UDim2.new(0,20,0,235),
+    BackgroundColor3=C.ACCENT,
+    BorderSizePixel=0,
+    Text="Entrar",
+    Font=Enum.Font.GothamBold,
+    TextSize=14,
+    TextColor3=C.WHITE,
+    Parent=KC,
+})
+Corner(KBtn,10)
+
+New("TextLabel",{
+    Size=UDim2.new(1,-40,0,14),
+    Position=UDim2.new(0,20,0,285),
+    Text="Keys: Devtest  •  Leandro  •  Renan",
+    Font=Enum.Font.Gotham,
+    TextSize=10,
+    TextColor3=C.MUTED,
+    BackgroundTransparency=1,
+    Parent=KC,
+})
+
+KC.Position = UDim2.new(0.5,-180,0.5,-130)
+KC.BackgroundTransparency = 1
+task.spawn(function()
+    task.wait(0.05)
+    Tw(KC,{Position=UDim2.new(0.5,-180,0.5,-160),BackgroundTransparency=0},MEDIUM)
+end)
+
+-- ═══════════════════════════════════════════════════
+--   JANELA PRINCIPAL
+-- ═══════════════════════════════════════════════════
+local Win = New("Frame",{
+    Size=UDim2.new(0,660,0,440),
+    Position=UDim2.new(0.5,-330,0.5,-220),
+    BackgroundColor3=C.BG,
+    BorderSizePixel=0,
+    Visible=false,
+    ClipsDescendants=true,
+    Parent=Gui,
+})
+Corner(Win,14)
+Stroke(Win,C.BORDER,1)
+
+local TBar = New("Frame",{Size=UDim2.new(1,0,0,38),BackgroundTransparency=1,Parent=Win})
+New("TextLabel",{
+    Size=UDim2.new(0,160,1,0),Position=UDim2.new(0,16,0,0),
+    Text="Cafajeste HUB",Font=Enum.Font.GothamBold,TextSize=13,
+    TextColor3=C.ACCENT2,BackgroundTransparency=1,
+    TextXAlignment=Enum.TextXAlignment.Left,Parent=TBar,
+})
+
+if IS_MM2 then
+    local bd=New("Frame",{Size=UDim2.new(0,148,0,22),Position=UDim2.new(0.5,-74,0,8),
+        BackgroundColor3=C.MM2,BorderSizePixel=0,Parent=TBar})
+    Corner(bd,11)
+    New("TextLabel",{Size=UDim2.new(1,0,1,0),Text="Murder Mystery 2",
+        Font=Enum.Font.GothamBold,TextSize=10,TextColor3=C.WHITE,BackgroundTransparency=1,Parent=bd})
+end
+
+local WIN_FULL_H  = 440
+local WIN_MINI_H  = 38
+local winMinimized = false
+
+local function WC(col, xo, cb)
+    local b=New("TextButton",{Size=UDim2.new(0,13,0,13),Position=UDim2.new(1,xo,0,13),
+        BackgroundColor3=col,Text="",BorderSizePixel=0,Parent=TBar})
+    Corner(b,7); b.MouseButton1Click:Connect(cb); return b
+end
+
+WC(C.RED,-24,function() Win.Visible=false end)
+
+WC(C.YELLOW,-44,function()
+    winMinimized = not winMinimized
+    if winMinimized then
+        Tw(Win,{Size=UDim2.new(0,660,0,WIN_MINI_H)},MEDIUM)
+    else
+        Tw(Win,{Size=UDim2.new(0,660,0,WIN_FULL_H)},MEDIUM)
+    end
+end)
+
+do
+    local drag,ds,sp=false,nil,nil
+    TBar.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then
+            drag=true;ds=i.Position;sp=Win.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then drag=false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if drag and i.UserInputType==Enum.UserInputType.MouseMovement then
+            local d=i.Position-ds
+            Win.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+        end
+    end)
+end
+
+New("Frame",{Size=UDim2.new(1,-24,0,1),Position=UDim2.new(0,12,0,38),
+    BackgroundColor3=C.BORDER,BorderSizePixel=0,Parent=Win})
+
+local Sidebar = New("Frame",{
+    Size=UDim2.new(0,154,1,-40),
+    Position=UDim2.new(0,0,0,40),
+    BackgroundColor3=C.SIDEBAR,
+    BorderSizePixel=0,
+    Parent=Win,
+})
+New("Frame",{Size=UDim2.new(0,14,1,0),Position=UDim2.new(1,-14,0,0),
+    BackgroundColor3=C.SIDEBAR,BorderSizePixel=0,Parent=Sidebar})
+New("Frame",{Size=UDim2.new(0,1,1,0),Position=UDim2.new(1,0,0,0),
+    BackgroundColor3=C.BORDER,BorderSizePixel=0,Parent=Sidebar})
+
+New("TextLabel",{
+    Size=UDim2.new(1,0,0,40),
+    Position=UDim2.new(0,0,0,10),
+    Text="CAFAJESTE HUB",
+    Font=Enum.Font.GothamBold,
+    TextSize=10,
+    TextColor3=C.ACCENT2,
+    BackgroundTransparency=1,
+    Parent=Sidebar,
+})
+
+local TabList = New("Frame",{
+    Size=UDim2.new(1,-16,0,0),
+    Position=UDim2.new(0,8,0,54),
+    BackgroundTransparency=1,
+    AutomaticSize=Enum.AutomaticSize.Y,
+    Parent=Sidebar,
+})
+New("UIListLayout",{Padding=UDim.new(0,3),Parent=TabList})
+
+local Content = New("Frame",{
+    Size=UDim2.new(1,-162,1,-40),
+    Position=UDim2.new(0,162,0,40),
+    BackgroundTransparency=1,
+    ClipsDescendants=true,
+    Parent=Win,
+})
+
+-- ═══════════════════════════════════════════════════
+--   SISTEMA DE TABS
+-- ═══════════════════════════════════════════════════
+local tabBtns  = {}
+local tabPages = {}
+local curTab   = nil
+
+-- CORRIGIDO: DIVISOR ORGANIZADO PARA O MM2
+local function AddDivider(txt, col)
+    New("Frame",{Size=UDim2.new(1,0,0,12),BackgroundTransparency=1,Parent=TabList}) -- Espaço grande em cima
+    local lbl=New("TextLabel",{
+        Size=UDim2.new(1,0,0,16),
+        BackgroundTransparency=1,
+        Text=txt,
+        Font=Enum.Font.GothamBlack, -- Fonte mais destacada
+        TextSize=11,
+        TextColor3=col or C.MUTED,
+        Parent=TabList,
+    })
+    New("Frame",{Size=UDim2.new(1,0,0,4),BackgroundTransparency=1,Parent=TabList}) -- Pequeno espaço antes dos botões
+    return lbl
+end
+
+local function SwitchTab(name)
+    curTab = name
+    for n,pg in pairs(tabPages) do pg.Visible=(n==name) end
+    for n,btn in pairs(tabBtns) do
+        local isActive = (n==name)
+        local acHex = btn:GetAttribute("AC")
+        local ac    = acHex and Color3.fromHex(acHex) or C.ACCENT
+        if isActive then
+            Tw(btn,{BackgroundColor3=ac}); btn.TextColor3=C.WHITE
+        else
+            Tw(btn,{BackgroundColor3=C.CARD}); btn.TextColor3=C.MUTED
+        end
+    end
+end
+
+local function AddTab(name, accentColor)
+    local ac = accentColor or C.ACCENT
+    local acHex = "#"..string.format("%02x%02x%02x",
+        math.floor(ac.R*255), math.floor(ac.G*255), math.floor(ac.B*255))
+
+    local btn = New("TextButton",{
+        Size=UDim2.new(1,0,0,34),
+        BackgroundColor3=C.CARD,
+        BorderSizePixel=0,
+        Text=name,
+        Font=Enum.Font.GothamSemibold,
+        TextSize=12,
+        TextColor3=C.MUTED,
+        TextXAlignment=Enum.TextXAlignment.Center,
+        Parent=TabList,
+    })
+    Corner(btn,8)
+    btn:SetAttribute("AC", acHex)
+    tabBtns[name] = btn
+
+    local pg = New("ScrollingFrame",{
+        Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1,
+        BorderSizePixel=0,
+        ScrollBarThickness=3,
+        ScrollBarImageColor3=ac,
+        CanvasSize=UDim2.new(0,0,0,0),
+        AutomaticCanvasSize=Enum.AutomaticSize.Y,
+        Visible=false,
+        Parent=Content,
+    })
+    New("UIListLayout",{Padding=UDim.new(0,14),Parent=pg}) 
+    Pad(pg,10,16,14,14) 
+    tabPages[name] = pg
+
+    btn.MouseButton1Click:Connect(function() SwitchTab(name) end)
+    btn.MouseEnter:Connect(function() if curTab~=name then Tw(btn,{BackgroundColor3=C.CARD_H}) end end)
+    btn.MouseLeave:Connect(function() if curTab~=name then Tw(btn,{BackgroundColor3=C.CARD}) end end)
+end
+
+AddTab("Player")
+AddTab("Troll")
+AddTab("Visual")
+AddTab("Combate")
+
+if IS_MM2 then
+    AddDivider("— MM2 —", C.MM2)
+    AddTab("Combat MM2",  C.MM2)
+    AddTab("Visual MM2",  C.MM2)
+    AddTab("Coins MM2",   C.YELLOW)
+end
+
+-- ═══════════════════════════════════════════════════
+--   COMPONENTES
+-- ═══════════════════════════════════════════════════
+local function MakeToggle(parent, label, default, cb, ac)
+    ac = ac or C.ACCENT
+    local card=New("Frame",{Size=UDim2.new(1,0,0,50),BackgroundColor3=C.CARD,BorderSizePixel=0,Parent=parent})
+    Corner(card,10); Stroke(card,C.BORDER,1)
+    New("TextLabel",{Size=UDim2.new(1,-68,1,0),Position=UDim2.new(0,14,0,0),Text=label,
+        Font=Enum.Font.GothamSemibold,TextSize=13,TextColor3=C.TEXT,
+        TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=card})
+    local track=New("Frame",{Size=UDim2.new(0,42,0,24),Position=UDim2.new(1,-56,0.5,-12),
+        BackgroundColor3=default and ac or C.BORDER,BorderSizePixel=0,Parent=card})
+    Corner(track,12)
+    local knob=New("Frame",{Size=UDim2.new(0,20,0,20),
+        Position=UDim2.new(0,default and 20 or 2,0,2),BackgroundColor3=C.WHITE,BorderSizePixel=0,Parent=track})
+    Corner(knob,10)
+    local on=default
+    local cb2=New("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",Parent=card})
+    cb2.MouseButton1Click:Connect(function()
+        on=not on
+        Tw(track,{BackgroundColor3=on and ac or C.BORDER})
+        Tw(knob,{Position=UDim2.new(0,on and 20 or 2,0,2)},SPRING)
+        cb(on)
+    end)
+    card.MouseEnter:Connect(function() Tw(card,{BackgroundColor3=C.CARD_H}) end)
+    card.MouseLeave:Connect(function() Tw(card,{BackgroundColor3=C.CARD}) end)
+    return card
+end
+
+local function MakeSlider(parent, label, min, max, default, cb, ac)
+    ac=ac or C.ACCENT
+    local card=New("Frame",{Size=UDim2.new(1,0,0,70),BackgroundColor3=C.CARD,BorderSizePixel=0,Parent=parent})
+    Corner(card,10); Stroke(card,C.BORDER,1)
+    New("TextLabel",{Size=UDim2.new(0.65,0,0,28),Position=UDim2.new(0,14,0,0),Text=label,
+        Font=Enum.Font.GothamSemibold,TextSize=12,TextColor3=C.TEXT,
+        TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=card})
+    local vl=New("TextLabel",{Size=UDim2.new(0.35,-14,0,28),Position=UDim2.new(0.65,0,0,0),
+        Text=tostring(default),Font=Enum.Font.GothamBold,TextSize=12,TextColor3=ac,
+        TextXAlignment=Enum.TextXAlignment.Right,BackgroundTransparency=1,Parent=card})
+    local bg=New("Frame",{Size=UDim2.new(1,-28,0,6),Position=UDim2.new(0,14,0,46),
+        BackgroundColor3=C.BORDER,BorderSizePixel=0,Parent=card})
+    Corner(bg,3)
+    local fill=New("Frame",{Size=UDim2.new((default-min)/(max-min),0,1,0),BackgroundColor3=ac,BorderSizePixel=0,Parent=bg})
+    Corner(fill,3)
+    local thumb=New("Frame",{Size=UDim2.new(0,14,0,14),
+        Position=UDim2.new((default-min)/(max-min),-7,0.5,-7),BackgroundColor3=C.WHITE,BorderSizePixel=0,Parent=bg})
+    Corner(thumb,7)
+    local dr=false
+    local function upd(x)
+        local r=math.clamp((x-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
+        local v=math.floor(min+r*(max-min))
+        vl.Text=tostring(v)
+        Tw(fill,{Size=UDim2.new(r,0,1,0)}); Tw(thumb,{Position=UDim2.new(r,-7,0.5,-7)})
+        cb(v)
+    end
+    bg.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dr=true;upd(i.Position.X) end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dr=false end end)
+    UserInputService.InputChanged:Connect(function(i) if dr and i.UserInputType==Enum.UserInputType.MouseMovement then upd(i.Position.X) end end)
+    return card
+end
+
+local function MakeBtn(parent, label, cb, bg2)
+    local btn=New("TextButton",{Size=UDim2.new(1,0,0,44),BackgroundColor3=bg2 or C.CARD,
+        BorderSizePixel=0,Text=label,Font=Enum.Font.GothamSemibold,TextSize=13,
+        TextColor3=bg2 and C.WHITE or C.TEXT,Parent=parent})
+    Corner(btn,10)
+    if not bg2 then Stroke(btn,C.BORDER,1) end
+    btn.MouseEnter:Connect(function() Tw(btn,{BackgroundColor3=(bg2 or C.CARD):Lerp(C.WHITE,0.1)}) end)
+    btn.MouseLeave:Connect(function() Tw(btn,{BackgroundColor3=bg2 or C.CARD}) end)
+    btn.MouseButton1Click:Connect(cb)
+    return btn
+end
+
+local function SecLabel(parent, txt)
+    New("Frame", {Size=UDim2.new(1,0,0,10), BackgroundTransparency=1, Parent=parent})
+    New("TextLabel",{Size=UDim2.new(1,0,0,18),BackgroundTransparency=1,Text=txt,
+        Font=Enum.Font.GothamBold,TextSize=11,TextColor3=C.MUTED,
+        TextXAlignment=Enum.TextXAlignment.Left,Parent=parent})
+end
+
+local function InfoCard(parent, txt, col)
+    local f=New("Frame",{Size=UDim2.new(1,0,0,56),BackgroundColor3=C.CARD,BorderSizePixel=0,Parent=parent})
+    Corner(f,10); Stroke(f,col or C.YELLOW,1)
+    New("TextLabel",{Size=UDim2.new(1,-20,1,0),Position=UDim2.new(0,10,0,0),Text=txt,
+        Font=Enum.Font.Gotham,TextSize=11,TextColor3=col or C.YELLOW,
+        TextWrapped=true,BackgroundTransparency=1,Parent=f})
+end
+
+-- ═══════════════════════════════════════════════════
+--   ESTADO GLOBAL
+-- ═══════════════════════════════════════════════════
+local S = {
+    fly=false, flySpeed=20,
+    noclip=false,
+    speed=false, walkSpeed=16,
+    jump=false,  jumpPower=50,
+    jerk=false,
+    bangRunning=false, bangTarget=nil,
+    espOn=false, espHL=false, espName=false, espTeam=false,
+    hitboxOn=false,
+    mm2HitboxOn=false, mm2HitboxSize=10,
+    mm2VisHL=false, mm2VisName=false,
+    mm2CoinOn=false,
+}
+
+-- ═══════════════════════════════════════════════════
+--   ABA: PLAYER
+-- ═══════════════════════════════════════════════════
+local pp = tabPages["Player"]
+SecLabel(pp,"  MOVIMENTO")
+MakeToggle(pp,"  Voar",false,function(v)
+    S.fly=v; if not v then return end
+    local char=LP.Character; if not char then return end
+    local root=char:FindFirstChild("HumanoidRootPart")
+    local hum=char:FindFirstChildWhichIsA("Humanoid")
+    if not root or not hum then return end
+    hum.PlatformStand=true
+    local BG=Instance.new("BodyGyro"); BG.P=9e4; BG.MaxTorque=Vector3.new(9e9,9e9,9e9); BG.CFrame=root.CFrame; BG.Parent=root
+    local BV=Instance.new("BodyVelocity"); BV.MaxForce=Vector3.new(9e9,9e9,9e9); BV.Velocity=Vector3.zero; BV.Parent=root
+    local conn; conn=RunService.RenderStepped:Connect(function()
+        if not S.fly then BG:Destroy();BV:Destroy();if hum and hum.Parent then hum.PlatformStand=false end;conn:Disconnect();return end
+        local cam=workspace.CurrentCamera; local sp=S.flySpeed*3
+        local d=Vector3.new(
+            (UserInputService:IsKeyDown(Enum.KeyCode.D) and sp or 0)-(UserInputService:IsKeyDown(Enum.KeyCode.A) and sp or 0),
+            (UserInputService:IsKeyDown(Enum.KeyCode.E) and sp or 0)-(UserInputService:IsKeyDown(Enum.KeyCode.Q) and sp or 0),
+            (UserInputService:IsKeyDown(Enum.KeyCode.W) and sp or 0)-(UserInputService:IsKeyDown(Enum.KeyCode.S) and sp or 0))
+        BV.Velocity=cam.CFrame.RightVector*d.X+Vector3.new(0,d.Y,0)+cam.CFrame.LookVector*d.Z; BG.CFrame=cam.CFrame
+    end)
+end)
+MakeSlider(pp,"Velocidade do Voo",1,100,20,function(v) S.flySpeed=v end)
+MakeToggle(pp,"  Noclip",false,function(v)
+    S.noclip=v
+    if not v and LP.Character then
+        for _,p in pairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=true end end
+    end
+end)
+RunService.Stepped:Connect(function()
+    if S.noclip and LP.Character then
+        for _,p in pairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end
+    end
+end)
+SecLabel(pp,"  STATS")
+MakeToggle(pp,"  Velocidade (WalkSpeed)",false,function(v)
+    S.speed=v
+    local hum=LP.Character and LP.Character:FindFirstChildWhichIsA("Humanoid")
+    if hum then hum.WalkSpeed=v and S.walkSpeed or 16 end
+end)
+MakeSlider(pp,"WalkSpeed",16,200,16,function(v)
+    S.walkSpeed=v
+    if S.speed then local hum=LP.Character and LP.Character:FindFirstChildWhichIsA("Humanoid"); if hum then hum.WalkSpeed=v end end
+end)
+MakeToggle(pp,"  Pulo (JumpPower)",false,function(v)
+    S.jump=v
+    local hum=LP.Character and LP.Character:FindFirstChildWhichIsA("Humanoid")
+    if hum then local jp=v and S.jumpPower or 50; if hum.UseJumpPower then hum.JumpPower=jp else hum.JumpHeight=jp end end
+end)
+MakeSlider(pp,"Poder do Pulo",16,200,50,function(v)
+    S.jumpPower=v
+    if S.jump then local hum=LP.Character and LP.Character:FindFirstChildWhichIsA("Humanoid")
+        if hum then if hum.UseJumpPower then hum.JumpPower=v else hum.JumpHeight=v end end end
+end)
+
+local CF=New("Frame",{Size=UDim2.new(1,-10,0,68),Position=UDim2.new(0,5,1,-76),
+    BackgroundColor3=C.CARD,BorderSizePixel=0,Parent=Sidebar})
+Corner(CF,10); Stroke(CF,C.BORDER,1)
+local CI=New("ImageLabel",{Size=UDim2.new(0,46,0,46),Position=UDim2.new(0,8,0.5,-23),
+    BackgroundColor3=C.BG,BorderSizePixel=0,Image="",Parent=CF})
+Corner(CI,8)
+New("TextLabel",{Size=UDim2.new(1,-68,0,18),Position=UDim2.new(0,60,0,14),Text=LP.Name,
+    Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.TEXT,
+    TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=CF})
+New("TextLabel",{Size=UDim2.new(1,-68,0,14),Position=UDim2.new(0,60,0,34),Text="@"..LP.Name,
+    Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.MUTED,
+    TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=CF})
+task.spawn(function()
+    local ok,img=pcall(function()
+        return Players:GetUserThumbnailAsync(LP.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size420x420)
+    end)
+    if ok then CI.Image=img end
+end)
+
+-- ═══════════════════════════════════════════════════
+--   ABA: TROLL
+-- ═══════════════════════════════════════════════════
+local tp=tabPages["Troll"]
+SecLabel(tp,"  ANIMAÇÕES")
+local jerkTool=nil
+MakeToggle(tp,"  Receber Item Jerk",false,function(v)
+    S.jerk=v
+    if not v then if jerkTool and jerkTool.Parent then jerkTool:Destroy() end jerkTool=nil; return end
+    local char=LP.Character; if not char then return end
+    local hum=char:FindFirstChildWhichIsA("Humanoid"); local bp=LP:FindFirstChildWhichIsA("Backpack")
+    if not hum or not bp then return end
+    local tool=Instance.new("Tool"); tool.Name="Jerk"; tool.RequiresHandle=false; tool.Parent=bp; jerkTool=tool
+    local jorking,track=false,nil
+    local function stop() jorking=false; if track then track:Stop(); track=nil end end
+    tool.Equipped:Connect(function() jorking=true end); tool.Unequipped:Connect(stop); hum.Died:Connect(stop)
+    task.spawn(function()
+        while task.wait() and S.jerk do
+            if not jorking then continue end
+            local r15=hum.RigType==Enum.HumanoidRigType.R15
+            if not track then local a=Instance.new("Animation"); a.AnimationId=r15 and "rbxassetid://698251653" or "rbxassetid://72042024"; track=hum:LoadAnimation(a) end
+            track:Play(); track:AdjustSpeed(0.7); track.TimePosition=0.6
+            task.wait(0.1)
+            while track and track.TimePosition<0.7 do task.wait(0.05) end
+            if track then track:Stop(); track=nil end
+        end
+    end)
+end)
+SecLabel(tp,"  BANG")
+local plCard=New("Frame",{Size=UDim2.new(1,0,0,180),BackgroundColor3=C.CARD,BorderSizePixel=0,Parent=tp})
+Corner(plCard,10); Stroke(plCard,C.BORDER,1)
+New("TextLabel",{Size=UDim2.new(1,-14,0,26),Position=UDim2.new(0,14,0,0),Text="Selecionar Jogador",
+    Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.TEXT,
+    TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=plCard})
+local plScroll=New("ScrollingFrame",{Size=UDim2.new(1,-16,0,110),Position=UDim2.new(0,8,0,28),
+    BackgroundColor3=Color3.fromRGB(12,12,20),BorderSizePixel=0,ScrollBarThickness=3,
+    ScrollBarImageColor3=C.ACCENT,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,Parent=plCard})
+Corner(plScroll,8); New("UIListLayout",{Padding=UDim.new(0,2),Parent=plScroll}); Pad(plScroll,4,4,4,4)
+local selLabel=New("TextLabel",{Size=UDim2.new(1,-14,0,18),Position=UDim2.new(0,14,0,148),
+    Text="Nenhum selecionado",Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.MUTED,
+    TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=plCard})
+local function RefreshList()
+    for _,c in pairs(plScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=LP then
+            local btn=New("TextButton",{Size=UDim2.new(1,0,0,26),BackgroundColor3=Color3.fromRGB(18,18,28),
+                BorderSizePixel=0,Text="  "..plr.Name,Font=Enum.Font.Gotham,TextSize=12,TextColor3=C.TEXT,
+                TextXAlignment=Enum.TextXAlignment.Left,Parent=plScroll})
+            Corner(btn,6)
+            btn.MouseButton1Click:Connect(function() S.bangTarget=plr; selLabel.Text="> "..plr.Name; Tw(selLabel,{TextColor3=C.GREEN}) end)
+            btn.MouseEnter:Connect(function() Tw(btn,{BackgroundColor3=C.CARD_H}) end)
+            btn.MouseLeave:Connect(function() Tw(btn,{BackgroundColor3=Color3.fromRGB(18,18,28)}) end)
+        end
+    end
+end
+RefreshList()
+Players.PlayerAdded:Connect(RefreshList)
+Players.PlayerRemoving:Connect(function() task.wait(0.1); RefreshList() end)
+local bRow=New("Frame",{Size=UDim2.new(1,0,0,44),BackgroundTransparency=1,Parent=tp})
+New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,8),Parent=bRow})
+local rfB=New("TextButton",{Size=UDim2.new(0.45,0,0,44),BackgroundColor3=C.CARD,BorderSizePixel=0,
+    Text="Atualizar Lista",Font=Enum.Font.GothamSemibold,TextSize=12,TextColor3=C.TEXT,Parent=bRow})
+Corner(rfB,10); Stroke(rfB,C.BORDER,1); rfB.MouseButton1Click:Connect(RefreshList)
+local bangBtn=New("TextButton",{Size=UDim2.new(0.55,-8,0,44),BackgroundColor3=C.ACCENT,BorderSizePixel=0,
+    Text="Bang no Jogador",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.WHITE,Parent=bRow})
+Corner(bangBtn,10)
+local bangAnim,bangTrack,bangDied,bangLoop
+local function StopBang()
+    S.bangRunning=false
+    pcall(function() bangDied:Disconnect() end); pcall(function() bangLoop:Disconnect() end)
+    pcall(function() bangTrack:Stop() end); pcall(function() bangAnim:Destroy() end)
+    bangAnim,bangTrack,bangDied,bangLoop=nil,nil,nil,nil
+    bangBtn.Text="Bang no Jogador"; Tw(bangBtn,{BackgroundColor3=C.ACCENT})
+end
+bangBtn.MouseButton1Click:Connect(function()
+    if S.bangRunning then StopBang(); return end
+    local target=S.bangTarget
+    if not target or not target.Character then Tw(bangBtn,{BackgroundColor3=C.RED}); task.delay(0.5,function() Tw(bangBtn,{BackgroundColor3=C.ACCENT}) end); return end
+    local char=LP.Character; if not char then return end
+    local hum=char:FindFirstChildWhichIsA("Humanoid"); if not hum then return end
+    StopBang(); S.bangRunning=true; bangBtn.Text="Parar Bang"; Tw(bangBtn,{BackgroundColor3=C.RED})
+    local r15=hum.RigType==Enum.HumanoidRigType.R15
+    bangAnim=Instance.new("Animation"); bangAnim.AnimationId=r15 and "rbxassetid://5918726674" or "rbxassetid://148840371"
+    bangTrack=hum:LoadAnimation(bangAnim); bangTrack:Play(0.1,1,1); bangTrack:AdjustSpeed(3)
+    bangDied=hum.Died:Connect(function() StopBang() end)
+    local tName=target.Name; local offset=CFrame.new(0,0,1.1)
+    bangLoop=RunService.Stepped:Connect(function()
+        pcall(function()
+            local pl=Players:FindFirstChild(tName); if not pl or not pl.Character then return end
+            local tr=pl.Character:FindFirstChild("HumanoidRootPart") or pl.Character:FindFirstChild("UpperTorso") or pl.Character:FindFirstChild("Torso")
+            local mr=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if tr and mr then mr.CFrame=tr.CFrame*offset end
+        end)
+    end)
+end)
+SecLabel(tp,"  SCRIPTS")
+MakeBtn(tp,"Abrir Menu do Voadora",function()
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Fe-DropKick-Script-165813"))()
+end)
+
+-- ═══════════════════════════════════════════════════
+--   ABA: VISUAL
+-- ═══════════════════════════════════════════════════
+local vp=tabPages["Visual"]
+SecLabel(vp,"  ESP")
+local espObjs={}
+local function ClearESP() for _,o in pairs(espObjs) do pcall(function() o:Destroy() end) end espObjs={} end
+local function BuildESP()
+    ClearESP(); if not S.espOn then return end
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=LP and plr.Character then
+            if S.espHL then
+                local hl=Instance.new("Highlight")
+                local col=S.espTeam and (plr.TeamColor and plr.TeamColor.Color or Color3.fromRGB(255,80,80)) or Color3.fromRGB(255,80,80)
+                hl.FillColor=col; hl.OutlineColor=col; hl.FillTransparency=0.5; hl.OutlineTransparency=0; hl.Parent=plr.Character
+                table.insert(espObjs,hl)
+            end
+            if S.espName then
+                local head=plr.Character:FindFirstChild("Head")
+                if head then
+                    local bb=Instance.new("BillboardGui"); bb.Size=UDim2.new(0,100,0,30)
+                    bb.StudsOffset=Vector3.new(0,2.5,0); bb.AlwaysOnTop=true; bb.Adornee=head; bb.Parent=plr.Character
+                    local lbl=Instance.new("TextLabel"); lbl.Size=UDim2.new(1,0,1,0); lbl.Text=plr.Name
+                    lbl.Font=Enum.Font.GothamBold; lbl.TextSize=14; lbl.TextColor3=C.WHITE
+                    lbl.TextStrokeTransparency=0; lbl.BackgroundTransparency=1; lbl.Parent=bb
+                    table.insert(espObjs,bb)
+                end
+            end
+        end
+    end
+end
+Players.PlayerAdded:Connect(function(plr) plr.CharacterAdded:Connect(function() task.wait(1); if S.espOn then BuildESP() end end) end)
+Players.PlayerRemoving:Connect(function() task.wait(0.1); if S.espOn then BuildESP() end end)
+MakeToggle(vp,"  Ativar ESP",false,function(v) S.espOn=v; BuildESP() end)
+MakeToggle(vp,"  Highlight (Silhueta)",false,function(v) S.espHL=v; if S.espOn then BuildESP() end end)
+MakeToggle(vp,"  Mostrar Nome",false,function(v) S.espName=v; if S.espOn then BuildESP() end end)
+MakeToggle(vp,"  Cor do Time",false,function(v) S.espTeam=v; if S.espOn then BuildESP() end end)
+
+-- ═══════════════════════════════════════════════════
+--   ABA: COMBATE
+-- ═══════════════════════════════════════════════════
+local cp=tabPages["Combate"]
+SecLabel(cp,"  SILENT AIM")
+InfoCard(cp,"BETA — Expande hitbox dos jogadores dentro do círculo de FOV na tela.",C.YELLOW)
+local FovCircle=New("Frame",{Size=UDim2.new(0,300,0,300),Position=UDim2.new(0.5,0,0.5,0),
+    AnchorPoint=Vector2.new(0.5,0.5),BackgroundTransparency=1,Visible=false,Parent=Gui})
+Corner(FovCircle,150)
+local FovStroke=New("UIStroke",{Thickness=1.5,Color=Color3.new(1,1,1),Parent=FovCircle})
+local hitboxConn=nil; local FOV_R=150
+local function StopHitbox()
+    if hitboxConn then hitboxConn:Disconnect(); hitboxConn=nil end
+    FovCircle.Visible=false
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=LP and plr.Character then
+            local rp=plr.Character:FindFirstChild("HumanoidRootPart")
+            if rp then local orig=rp:GetAttribute("OrigSize"); if orig then rp.Size=orig; rp.Transparency=1; rp.CanCollide=false end end
+        end
+    end
+end
+local function P2W(px,depth) local fl=(Camera.ViewportSize.Y*0.5)/math.tan(math.rad(Camera.FieldOfView*0.5)); return (px*depth)/fl end
+MakeToggle(cp,"  Ativar Silent Aim (BETA)",false,function(v)
+    S.hitboxOn=v; if not v then StopHitbox(); return end
+    FovCircle.Visible=true
+    local rp2=RaycastParams.new(); rp2.FilterType=Enum.RaycastFilterType.Exclude
+    hitboxConn=RunService.RenderStepped:Connect(function()
+        if not S.hitboxOn then StopHitbox(); return end
+        local center=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+        local camPos=Camera.CFrame.Position; local found=false
+        for _,plr in pairs(Players:GetPlayers()) do
+            if plr~=LP and plr.Character then
+                local root=plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local sp,onS=Camera:WorldToViewportPoint(root.Position)
+                    if onS then
+                        local d2D=(Vector2.new(sp.X,sp.Y)-center).Magnitude
+                        if d2D<=FOV_R then
+                            rp2.FilterDescendantsInstances={LP.Character,plr.Character}
+                            if workspace:Raycast(camPos,root.Position-camPos,rp2)==nil then
+                                local ws=P2W(FOV_R,(root.Position-camPos).Magnitude)
+                                if not root:GetAttribute("OrigSize") then root:SetAttribute("OrigSize",root.Size) end
+                                root.Size=Vector3.new(ws,ws,ws); root.Transparency=1; root.CanCollide=false; found=true
+                            else local orig=root:GetAttribute("OrigSize"); if orig then root.Size=orig; root.Transparency=1; root.CanCollide=false end
+                            end
+                        else local orig=root:GetAttribute("OrigSize"); if orig then root.Size=orig; root.Transparency=1; root.CanCollide=false end
+                        end
+                    end
+                end
+            end
+        end
+        Tw(FovStroke,{Color=found and C.GREEN or C.WHITE})
+    end)
+end)
+
+-- ═══════════════════════════════════════════════════
+--   TABS MM2
+-- ═══════════════════════════════════════════════════
+if IS_MM2 then
+
+    local ROLE_I,ROLE_M,ROLE_S="Inocente","Murder","Sheriff"
+    local RCOL={[ROLE_I]=Color3.fromRGB(50,210,130),[ROLE_M]=Color3.fromRGB(255,60,60),[ROLE_S]=Color3.fromRGB(80,160,255)}
+    
+    -- CORRIGIDO: Checa tanto na Mão (Character) quanto no Inventário (Backpack)
+    local function GetRole(plr)
+        local function checkTools(folder)
+            if not folder then return nil end
+            for _, tool in pairs(folder:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local name = tool.Name:lower()
+                    if name:find("knife") or name:find("blade") then return ROLE_M end
+                    if name:find("gun") or name:find("revolver") or name:find("sheriff") then return ROLE_S end
+                end
+            end
+            return nil
+        end
+        
+        local role = checkTools(plr.Character)
+        if role then return role end
+        
+        role = checkTools(plr:FindFirstChild("Backpack"))
+        if role then return role end
+        
+        return ROLE_I
+    end
+    
+    local function GetRC(plr) return RCOL[GetRole(plr)] or RCOL[ROLE_I] end
+
+    local mc=tabPages["Combat MM2"]
+    SecLabel(mc,"  HITBOX POR ROLE")
+    InfoCard(mc,"Hitbox colorida por role:\nVerde = Inocente  |  Vermelho = Murder  |  Azul = Sheriff",C.MM2)
+    local mm2HBConn=nil
+    local function StopMM2HB()
+        if mm2HBConn then mm2HBConn:Disconnect(); mm2HBConn=nil end
+        for _,plr in pairs(Players:GetPlayers()) do
+            if plr~=LP and plr.Character then
+                local rp=plr.Character:FindFirstChild("HumanoidRootPart")
+                if rp then
+                    local orig=rp:GetAttribute("M2OS")
+                    if orig then rp.Size=orig; rp.Transparency=1; rp.CanCollide=false; rp.Material=Enum.Material.SmoothPlastic end
+                end
+            end
+        end
+    end
+    MakeToggle(mc,"  Ativar Hitbox MM2",false,function(v)
+        S.mm2HitboxOn=v; if not v then StopMM2HB(); return end
+        mm2HBConn=RunService.RenderStepped:Connect(function()
+            if not S.mm2HitboxOn then StopMM2HB(); return end
+            for _,plr in pairs(Players:GetPlayers()) do
+                if plr~=LP and plr.Character then
+                    local rp=plr.Character:FindFirstChild("HumanoidRootPart")
+                    if rp then
+                        if not rp:GetAttribute("M2OS") then rp:SetAttribute("M2OS",rp.Size) end
+                        rp.Size=Vector3.new(S.mm2HitboxSize,S.mm2HitboxSize,S.mm2HitboxSize)
+                        rp.Transparency=0.5; rp.CanCollide=false; rp.Material=Enum.Material.Neon; rp.Color=GetRC(plr)
+                    end
+                end
+            end
+        end)
+    end,C.MM2)
+    MakeSlider(mc,"Tamanho da Hitbox",1,100,10,function(v) S.mm2HitboxSize=v end,C.MM2)
+
+    local mv=tabPages["Visual MM2"]
+    SecLabel(mv,"  HIGHLIGHT POR ROLE")
+    InfoCard(mv,"Highlight e nome coloridos:\nVerde=Inocente | Vermelho=Murder | Azul=Sheriff",C.MM2)
+    local mm2EO,mm2NO={},{}
+    local function ClearMM2V()
+        for _,o in pairs(mm2EO) do pcall(function() o:Destroy() end) end
+        for _,o in pairs(mm2NO) do pcall(function() o:Destroy() end) end
+        mm2EO={}; mm2NO={}
+    end
+    local function BuildMM2V()
+        ClearMM2V()
+        for _,plr in pairs(Players:GetPlayers()) do
+            if plr~=LP and plr.Character then
+                local col=GetRC(plr)
+                if S.mm2VisHL then
+                    local hl=Instance.new("Highlight"); hl.FillColor=col; hl.OutlineColor=col
+                    hl.FillTransparency=0.4; hl.OutlineTransparency=0; hl.Parent=plr.Character
+                    table.insert(mm2EO,hl)
+                end
+                if S.mm2VisName then
+                    local head=plr.Character:FindFirstChild("Head")
+                    if head then
+                        local bb=Instance.new("BillboardGui"); bb.Size=UDim2.new(0,130,0,30)
+                        bb.StudsOffset=Vector3.new(0,2.5,0); bb.AlwaysOnTop=true; bb.Adornee=head; bb.Parent=plr.Character
+                        local lbl=Instance.new("TextLabel"); lbl.Size=UDim2.new(1,0,1,0)
+                        lbl.Text=plr.Name.." ["..GetRole(plr).."]"; lbl.Font=Enum.Font.GothamBold
+                        lbl.TextSize=13; lbl.TextColor3=col; lbl.TextStrokeTransparency=0
+                        lbl.BackgroundTransparency=1; lbl.Parent=bb
+                        table.insert(mm2NO,bb)
+                    end
+                end
+            end
+        end
+    end
+    Players.PlayerAdded:Connect(function(plr)
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(1); if S.mm2VisHL or S.mm2VisName then BuildMM2V() end
+            char.ChildAdded:Connect(function() task.wait(0.5); if S.mm2VisHL or S.mm2VisName then BuildMM2V() end end)
+            char.ChildRemoved:Connect(function() task.wait(0.5); if S.mm2VisHL or S.mm2VisName then BuildMM2V() end end)
+        end)
+    end)
+    task.spawn(function() while true do task.wait(3); if S.mm2VisHL or S.mm2VisName then BuildMM2V() end end end)
+    MakeToggle(mv,"  Highlight por Role",false,function(v) S.mm2VisHL=v; BuildMM2V() end,C.MM2)
+    MakeToggle(mv,"  Mostrar Nome + Role",false,function(v) S.mm2VisName=v; BuildMM2V() end,C.MM2)
+
+    local coinP=tabPages["Coins MM2"]
+    SecLabel(coinP,"  AUTO COLETAR COINS")
+    InfoCard(coinP,"O personagem voa até cada moeda atravessando paredes uma por uma.",C.YELLOW)
+
+    local cStatCard=New("Frame",{Size=UDim2.new(1,0,0,64),BackgroundColor3=C.CARD,BorderSizePixel=0,Parent=coinP})
+    Corner(cStatCard,10); Stroke(cStatCard,C.BORDER,1)
+    local cStat=New("TextLabel",{Size=UDim2.new(1,-20,0,22),Position=UDim2.new(0,10,0,8),
+        Text="Status: Parado",Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.MUTED,
+        TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=cStatCard})
+    local cCnt=New("TextLabel",{Size=UDim2.new(1,-20,0,18),Position=UDim2.new(0,10,0,34),
+        Text="Coins coletadas: 0",Font=Enum.Font.Gotham,TextSize=11,TextColor3=C.MUTED,
+        TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Parent=cStatCard})
+
+    local coinBtn=MakeBtn(coinP,"Iniciar Auto Coin",nil,C.YELLOW)
+    coinBtn.TextColor3=Color3.fromRGB(30,20,0)
+
+    local coinThread=nil; local coinRunning=false; local coinCount=0
+
+    local function StopCoin()
+        coinRunning=false
+        if coinThread then task.cancel(coinThread); coinThread=nil end
+        S.noclip=false
+        if LP.Character then
+            for _,p in pairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=true end end
+        end
+        coinBtn.Text="Iniciar Auto Coin"; Tw(coinBtn,{BackgroundColor3=C.YELLOW}); coinBtn.TextColor3=Color3.fromRGB(30,20,0)
+        cStat.Text="Status: Parado"; Tw(cStat,{TextColor3=C.MUTED})
+    end
+
+    local function GetCoins()
+        local coins={}
+        for _,v in pairs(workspace:GetDescendants()) do
+            if v.Name=="Coin_Server" and v:IsA("BasePart") then table.insert(coins,v) end
+        end
+        return coins
+    end
+
+    local function StartCoin()
+        if coinRunning then StopCoin(); return end
+        local char=LP.Character; if not char then return end
+        local root=char:FindFirstChild("HumanoidRootPart"); if not root then return end
+        coinRunning=true; coinCount=0
+        coinBtn.Text="Parar Auto Coin"; Tw(coinBtn,{BackgroundColor3=C.RED}); coinBtn.TextColor3=C.WHITE
+        Tw(cStat,{TextColor3=C.GREEN})
+        coinThread=task.spawn(function()
+            while coinRunning do
+                S.noclip=true
+                local coins=GetCoins()
+                if #coins==0 then cStat.Text="Status: Aguardando coins..."; task.wait(2); continue end
+                cStat.Text="Status: Coletando ("..#coins.." no mapa)"
+                for _,coin in ipairs(coins) do
+                    if not coinRunning then break end
+                    if not coin or not coin.Parent then continue end
+                    char=LP.Character; if not char then break end
+                    root=char:FindFirstChild("HumanoidRootPart"); if not root then break end
+                    for _,p in pairs(char:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end
+                    pcall(function() root.CFrame=CFrame.new(coin.Position+Vector3.new(0,0.5,0)) end)
+                    coinCount=coinCount+1; cCnt.Text="Coins coletadas: "..coinCount
+                    local t=0
+                    while coin and coin.Parent and t<0.5 do task.wait(0.05); t=t+0.05 end
+                    task.wait(0.08)
+                end
+                task.wait(1)
+            end
+        end)
+    end
+
+    coinBtn.MouseButton1Click:Connect(function() if coinRunning then StopCoin() else StartCoin() end end)
+    LP.CharacterAdded:Connect(function() if coinRunning then StopCoin() end end)
+
+end 
+
+-- ═══════════════════════════════════════════════════
+--   KEY SYSTEM
+-- ═══════════════════════════════════════════════════
+KBtn.MouseEnter:Connect(function() Tw(KBtn,{BackgroundColor3=C.ACCENT2}) end)
+KBtn.MouseLeave:Connect(function() Tw(KBtn,{BackgroundColor3=C.ACCENT}) end)
+
+local function ShakeCard()
+    local ox=KC.Position.X.Offset; local oy=KC.Position.Y.Offset
+    for i=1,5 do
+        KC.Position=UDim2.new(0.5,ox+(i%2==0 and 10 or -10),0.5,oy)
+        task.wait(0.045)
+    end
+    KC.Position=UDim2.new(0.5,ox,0.5,oy)
+end
+
+local function TryKey()
+    if VALID_KEYS[KB.Text] then
+        Tw(KC,{Position=UDim2.new(0.5,-180,0.5,-130),BackgroundTransparency=1},MEDIUM)
+        Tw(KS,{BackgroundTransparency=1},MEDIUM)
+        task.delay(0.38,function()
+            KS:Destroy()
+            Win.Visible=true
+            SwitchTab("Player")
+        end)
+    else
+        KStat.Text="Chave inválida. Use: Devtest, Leandro ou Renan"
+        Stroke(KB, C.RED, 1)
+        Tw(KB,{BackgroundColor3=Color3.fromRGB(35,10,10)})
+        task.delay(1.2,function()
+            Tw(KB,{BackgroundColor3=Color3.fromRGB(10,10,18)})
+            KStat.Text=""
+            for _,c in pairs(KB:GetChildren()) do if c:IsA("UIStroke") then c:Destroy() end end
+            Stroke(KB,C.BORDER,1)
+        end)
+        ShakeCard()
+    end
+end
+
+KBtn.MouseButton1Click:Connect(TryKey)
+KB.FocusLost:Connect(function(enter) if enter then TryKey() end end)
+
+SwitchTab("Player")
+print("[CafajesteHUB v3.2] Keys: Devtest | Leandro | Renan"..(IS_MM2 and " | MM2 ativo!" or ""))
